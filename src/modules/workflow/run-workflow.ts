@@ -57,7 +57,7 @@ export async function runMvpWorkflow() {
 
     const extracted = (
       await Promise.all(
-        getConnectors()
+        getConnectors({ allowMockFallback: true })
           .filter((connector) => enabledSources.has(connector.source))
           .map((connector) =>
             connector.extract({

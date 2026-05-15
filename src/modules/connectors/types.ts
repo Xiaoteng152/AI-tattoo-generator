@@ -14,6 +14,7 @@ export type ExtractedRawItem = {
   title: string;
   body: string;
   author?: string;
+  publishedAt?: string;
   tags: string[];
   metrics: {
     upvotes?: number;

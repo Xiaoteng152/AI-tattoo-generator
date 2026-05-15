@@ -11,11 +11,10 @@ export type BacktestInput = {
 };
 
 export async function runConnectorBacktest(input: BacktestInput = {}) {
-  const productDirection = input.productDirection ?? "AI tattoo generator";
-  const keywords = input.keywords?.length
-    ? input.keywords
-    : ["ai tattoo", "tattoo generator", "minimal tattoo", "fine line tattoo", "tattoo ideas"];
-  const connectors = getConnectors();
+  const productDirection = input.productDirection ?? "比特币增长机会";
+  const keywords = input.keywords?.length ? input.keywords : ["比特币"];
+  const allowMockFallback = /tattoo|纹身/i.test(`${productDirection} ${keywords.join(" ")}`);
+  const connectors = getConnectors({ allowMockFallback });
   const startedAt = new Date();
   const sourceReports = [];
   const opportunities = [];

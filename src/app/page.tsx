@@ -1,3 +1,4 @@
+import { canReachDatabase, getDatabaseUnavailableMessage } from "@/lib/db-health";
 import { prisma } from "@/lib/prisma";
 import { ensureSeedWorkflowConfig } from "@/modules/workflow/seed-config";
 import { BacktestButton } from "./components/BacktestButton";
@@ -6,6 +7,12 @@ import { RunWorkflowButton } from "./components/RunWorkflowButton";
 export const dynamic = "force-dynamic";
 
 async function getDashboardData() {
+  const databaseReady = await canReachDatabase();
+
+  if (!databaseReady) {
+    return { config: null, latestRun: null, error: getDatabaseUnavailableMessage() };
+  }
+
   try {
     const config = await ensureSeedWorkflowConfig();
     const latestRun = await prisma.workflowRun.findFirst({
@@ -123,7 +130,6 @@ export default async function Home() {
               </div>
             ) : null}
             {error ? <p className="warning">Database setup needed: {error}</p> : <RunWorkflowButton />}
-            <BacktestButton />
           </aside>
         </div>
 
@@ -148,6 +154,17 @@ export default async function Home() {
             <strong>{summary?.outputAssets ?? 1}</strong>
             <span>Output Assets</span>
           </div>
+        </section>
+
+        <section className="backtest-panel">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Backtest Console</p>
+              <h2>关键词回测结果</h2>
+            </div>
+            <span className="refresh">默认回测比特币，结果按帖子逐条展示</span>
+          </div>
+          <BacktestButton />
         </section>
 
         <section className="dashboard-grid">

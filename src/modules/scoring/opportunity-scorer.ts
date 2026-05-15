@@ -16,7 +16,8 @@ export function scoreOpportunity(item: NormalizedRecord, enrichment: EnrichmentR
   const type = hasCommercialSignal ? "product-experiment" : "seo-brief";
   const score = Math.min(100, Math.round(enrichment.opportunityScore * 0.75 + item.engagementScore / 20));
   const confidence = Math.min(95, 55 + enrichment.painPoints.length * 10 + (hasCommercialSignal ? 15 : 5));
-  const keyword = enrichment.keywords[0] ?? "ai tattoo generator";
+  const keyword = enrichment.keywords[0] ?? item.tags.find((tag) => !tag.startsWith("real-") && !tag.startsWith("r/")) ?? "growth opportunity";
+  const isTattooContext = `${keyword} ${item.title} ${item.tags.join(" ")}`.toLowerCase().includes("tattoo");
 
   return {
     title: `${keyword}: ${item.title}`,
@@ -27,6 +28,8 @@ export function scoreOpportunity(item: NormalizedRecord, enrichment: EnrichmentR
     sourceUrls: [item.sourceUrl],
     recommendedAct: hasCommercialSignal
       ? "Validate a paid design-brief bundle and compare Etsy positioning."
-      : "Publish an SEO brief that answers the user's pre-booking concern with examples and a checklist."
+      : isTattooContext
+        ? "Publish an SEO brief that answers the user's pre-booking concern with examples and a checklist."
+        : "Publish an evidence-backed content brief that explains the signal, audience intent, and next growth action."
   };
 }

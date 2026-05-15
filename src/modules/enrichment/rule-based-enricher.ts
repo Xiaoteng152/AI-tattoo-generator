@@ -20,12 +20,18 @@ const keywordRules = [
   { match: "minimal", keyword: "minimal tattoo ideas", pain: "Needs tasteful minimal concepts" }
 ];
 
+function inferFallbackKeyword(item: NormalizedRecord) {
+  const tag = item.tags.find((value) => !value.startsWith("real-") && !value.startsWith("r/") && value.length > 1);
+  return tag ?? item.title.split(/\s+/).slice(0, 3).join(" ") ?? "growth opportunity";
+}
+
 export function enrichNormalizedItem(item: NormalizedRecord): EnrichmentResult {
   const text = `${item.title} ${item.body} ${item.tags.join(" ")}`.toLowerCase();
   const matched = keywordRules.filter((rule) => text.includes(rule.match));
-  const keywords = matched.length > 0 ? matched.map((rule) => rule.keyword) : ["ai tattoo generator"];
+  const fallbackKeyword = inferFallbackKeyword(item);
+  const keywords = matched.length > 0 ? matched.map((rule) => rule.keyword) : [fallbackKeyword];
   const painPoints =
-    matched.length > 0 ? matched.map((rule) => rule.pain) : ["Needs clearer tattoo design direction"];
+    matched.length > 0 ? matched.map((rule) => rule.pain) : ["Needs clearer evidence-to-action framing"];
   const commercialSignal = item.source === "etsy" ? 14 : 0;
   const opportunityScore = Math.min(100, Math.round(item.engagementScore / 12) + matched.length * 9 + commercialSignal);
 
@@ -38,7 +44,7 @@ export function enrichNormalizedItem(item: NormalizedRecord): EnrichmentResult {
     keywords: Array.from(new Set(keywords)),
     contentAngles: [
       `Show ${keywords[0]} examples with source-backed concerns`,
-      `Turn the evidence into a tattoo artist brief checklist`
+      `Turn the evidence into an operator-ready growth brief`
     ],
     evidenceSummary: `${item.source.toUpperCase()} signal: ${item.title}`,
     opportunityScore

@@ -8,6 +8,7 @@ const etsySeed: Omit<ExtractedRawItem, "payload">[] = [
     title: "Custom fine line tattoo design pack with editable stencil",
     body: "Seller offers minimal symbols, birth flowers, and placement mockups as a downloadable consultation bundle.",
     author: "LineworkStudio",
+    publishedAt: "2026-05-01T00:00:00.000Z",
     tags: ["commercial-signal", "fine-line", "stencil"],
     metrics: { favorites: 1240, salesSignal: 410 }
   },
@@ -18,6 +19,7 @@ const etsySeed: Omit<ExtractedRawItem, "payload">[] = [
     title: "Personalized coverup tattoo concept board",
     body: "A high-priced listing focused on artist-ready concepts, mood boards, and revision notes for coverup projects.",
     author: "InkBriefCo",
+    publishedAt: "2026-05-03T00:00:00.000Z",
     tags: ["commercial-signal", "coverup", "artist-brief"],
     metrics: { favorites: 820, salesSignal: 255 }
   }
@@ -27,6 +29,12 @@ export const mockEtsyConnector: Connector = {
   source: "etsy",
   mode: "mock",
   async extract(input: ConnectorInput) {
+    const searchText = `${input.productDirection} ${input.keywords.join(" ")}`.toLowerCase();
+
+    if (!/(tattoo|纹身|刺青)/i.test(searchText)) {
+      return [];
+    }
+
     return etsySeed.map((item) => ({
       ...item,
       payload: {

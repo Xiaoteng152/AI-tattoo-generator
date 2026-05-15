@@ -40,7 +40,7 @@ export const redditConnector: Connector = {
 
     for (const keyword of input.keywords) {
       const url = new URL("/search.json", redditBaseUrl);
-      url.searchParams.set("q", `${keyword} tattoo`);
+      url.searchParams.set("q", keyword);
       url.searchParams.set("sort", "relevance");
       url.searchParams.set("t", input.lookbackDays && input.lookbackDays <= 7 ? "week" : "month");
       url.searchParams.set("limit", String(perKeywordLimit));
@@ -74,6 +74,7 @@ export const redditConnector: Connector = {
           title: post.title,
           body: post.selftext ?? "",
           author: post.author,
+          publishedAt: post.created_utc ? new Date(post.created_utc * 1000).toISOString() : undefined,
           tags: buildTags(post, keyword),
           metrics: {
             upvotes: post.ups ?? 0,

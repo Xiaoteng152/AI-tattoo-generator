@@ -16,6 +16,8 @@ type EtsyListing = {
     divisor?: number;
     currency_code?: string;
   };
+  created_timestamp?: number;
+  updated_timestamp?: number;
 };
 
 type EtsyListingsResponse = {
@@ -90,6 +92,11 @@ export const etsyConnector: Connector = {
           title: listing.title ?? "Untitled Etsy listing",
           body: summarizeDescription(listing.description),
           author: listing.shop_id ? `shop:${listing.shop_id}` : listing.user_id ? `user:${listing.user_id}` : undefined,
+          publishedAt: listing.created_timestamp
+            ? new Date(listing.created_timestamp * 1000).toISOString()
+            : listing.updated_timestamp
+              ? new Date(listing.updated_timestamp * 1000).toISOString()
+              : undefined,
           tags,
           metrics: {
             favorites: listing.num_favorers ?? 0,

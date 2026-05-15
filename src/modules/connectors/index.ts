@@ -4,7 +4,11 @@ import { mockRedditConnector } from "./mock-reddit";
 import { redditConnector } from "./reddit";
 import type { Connector } from "./types";
 
-export function getConnectors(): Connector[] {
+type ConnectorOptions = {
+  allowMockFallback?: boolean;
+};
+
+export function getConnectors(options: ConnectorOptions = {}): Connector[] {
   const mode = process.env.CONNECTORS_MODE ?? "hybrid";
 
   if (mode === "mock") {
@@ -15,5 +19,9 @@ export function getConnectors(): Connector[] {
     return [redditConnector, etsyConnector];
   }
 
-  return [redditConnector, process.env.ETSY_API_KEY || process.env.ETSY_KEYSTRING ? etsyConnector : mockEtsyConnector];
+  if (process.env.ETSY_API_KEY || process.env.ETSY_KEYSTRING) {
+    return [redditConnector, etsyConnector];
+  }
+
+  return options.allowMockFallback ? [redditConnector, mockEtsyConnector] : [redditConnector];
 }
