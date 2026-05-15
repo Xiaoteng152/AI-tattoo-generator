@@ -1,0 +1,180 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkflowRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum RunStepStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum OutputAssetStatus {
+  DRAFT
+  REVIEWED
+  EXPORTED
+  DISCARDED
+}
+
+model WorkflowConfig {
+  id               String           @id @default(cuid())
+  name             String
+  productDirection String           @map("product_direction")
+  keywords         String[]
+  filters          Json
+  promptVersion    String           @map("prompt_version")
+  outputTemplate   String           @map("output_template")
+  reviewThreshold  Int              @default(70) @map("review_threshold")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  sources          WorkflowSource[]
+  runs             WorkflowRun[]
+
+  @@map("workflow_configs")
+}
+
+model WorkflowSource {
+  id               String         @id @default(cuid())
+  workflowConfigId String         @map("workflow_config_id")
+  source           String
+  config           Json
+  enabled          Boolean        @default(true)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  workflowConfig   WorkflowConfig @relation(fields: [workflowConfigId], references: [id], onDelete: Cascade)
+
+  @@map("workflow_sources")
+}
+
+model WorkflowRun {
+  id               String            @id @default(cuid())
+  workflowConfigId String            @map("workflow_config_id")
+  status           WorkflowRunStatus @default(PENDING)
+  startedAt        DateTime?         @map("started_at")
+  completedAt      DateTime?         @map("completed_at")
+  summary          Json?
+  error            String?
+  workflowConfig   WorkflowConfig    @relation(fields: [workflowConfigId], references: [id], onDelete: Cascade)
+  steps            RunStep[]
+  rawItems         RawItem[]
+  normalizedItems  NormalizedItem[]
+  enrichments      Enrichment[]
+  opportunities    Opportunity[]
+  outputAssets     OutputAsset[]
+
+  @@map("workflow_runs")
+}
+
+model RunStep {
+  id            String        @id @default(cuid())
+  workflowRunId String        @map("workflow_run_id")
+  name          String
+  status        RunStepStatus @default(PENDING)
+  startedAt     DateTime?     @map("started_at")
+  completedAt   DateTime?     @map("completed_at")
+  metadata      Json?
+  error         String?
+  workflowRun   WorkflowRun   @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+
+  @@map("run_steps")
+}
+
+model RawItem {
+  id               String           @id @default(cuid())
+  workflowRunId    String           @map("workflow_run_id")
+  source           String
+  externalId       String           @map("external_id")
+  sourceUrl        String           @map("source_url")
+  title            String
+  payload          Json
+  metrics          Json
+  fetchedAt        DateTime         @default(now()) @map("fetched_at")
+  workflowRun      WorkflowRun      @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  normalizedItems  NormalizedItem[]
+
+  @@unique([source, externalId])
+  @@map("raw_items")
+}
+
+model NormalizedItem {
+  id               String        @id @default(cuid())
+  workflowRunId    String        @map("workflow_run_id")
+  rawItemId        String        @map("raw_item_id")
+  source           String
+  title            String
+  body             String
+  author           String?
+  sourceUrl        String        @map("source_url")
+  tags             String[]
+  language         String        @default("en")
+  engagementScore  Int           @map("engagement_score")
+  normalizedAt     DateTime      @default(now()) @map("normalized_at")
+  workflowRun      WorkflowRun   @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  rawItem          RawItem       @relation(fields: [rawItemId], references: [id], onDelete: Cascade)
+  enrichments      Enrichment[]
+
+  @@map("normalized_items")
+}
+
+model Enrichment {
+  id               String         @id @default(cuid())
+  workflowRunId    String         @map("workflow_run_id")
+  normalizedItemId String         @map("normalized_item_id")
+  model            String
+  promptVersion    String         @map("prompt_version")
+  painPoints       String[]       @map("pain_points")
+  intent           String
+  trendType        String         @map("trend_type")
+  keywords         String[]
+  contentAngles    String[]       @map("content_angles")
+  evidenceSummary  String         @map("evidence_summary")
+  opportunityScore Int            @map("opportunity_score")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  workflowRun      WorkflowRun    @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  normalizedItem   NormalizedItem @relation(fields: [normalizedItemId], references: [id], onDelete: Cascade)
+
+  @@map("enrichments")
+}
+
+model Opportunity {
+  id              String        @id @default(cuid())
+  workflowRunId   String        @map("workflow_run_id")
+  title           String
+  type            String
+  score           Int
+  confidence      Int
+  evidenceSummary String        @map("evidence_summary")
+  sourceUrls      String[]      @map("source_urls")
+  recommendedAct  String        @map("recommended_act")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  workflowRun     WorkflowRun   @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  outputAssets    OutputAsset[]
+
+  @@map("opportunities")
+}
+
+model OutputAsset {
+  id            String            @id @default(cuid())
+  workflowRunId String            @map("workflow_run_id")
+  opportunityId String?           @map("opportunity_id")
+  type          String
+  title         String
+  content       String
+  status        OutputAssetStatus @default(DRAFT)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  workflowRun   WorkflowRun       @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity?      @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  @@map("output_assets")
+}
