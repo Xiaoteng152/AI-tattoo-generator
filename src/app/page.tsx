@@ -97,11 +97,12 @@ export default async function Home() {
             <div className="hot-badge">AI tattoo generator demo</div>
             <h1 className="title">增长机会热榜监控</h1>
             <p className="lead">
-              通过 mock Reddit 与 Etsy 信号，发现正在升温的用户痛点、商业需求和内容机会。点击运行后，系统会保存证据链并生成可审核的 Markdown SEO brief。
+              通过 Reddit、X/Twitter 与 Etsy 信号，发现正在升温的用户痛点、商业需求和内容机会。点击运行后，系统会保存证据链并生成可审核的 Markdown SEO brief。
             </p>
             <div className="tabs">
               <span className="tab active">AI tattoo</span>
               <span className="tab">Reddit 痛点</span>
+              <span className="tab">X/Twitter 热帖</span>
               <span className="tab">Etsy 商业验证</span>
               <span className="tab">SEO brief</span>
             </div>

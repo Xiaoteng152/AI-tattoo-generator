@@ -8,7 +8,8 @@ const backtestInputSchema = z.object({
   productDirection: z.string().min(1).optional(),
   keywords: z.array(z.string().min(1)).min(1).max(12).optional(),
   limitPerSource: z.number().int().min(1).max(20).optional(),
-  lookbackDays: z.number().int().min(1).max(365).optional()
+  lookbackDays: z.number().int().min(1).max(365).optional(),
+  sources: z.array(z.enum(["reddit", "etsy", "twitter"])).min(1).max(3).optional()
 });
 
 export async function GET() {

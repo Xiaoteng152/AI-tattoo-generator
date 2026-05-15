@@ -16,6 +16,9 @@ export function normalizeRawItem(item: ExtractedRawItem): NormalizedRecord {
     (item.metrics.upvotes ?? 0) +
     (item.metrics.comments ?? 0) * 2 +
     (item.metrics.favorites ?? 0) +
+    (item.metrics.retweets ?? 0) * 2 +
+    (item.metrics.replies ?? 0) * 2 +
+    Math.round((item.metrics.views ?? 0) / 1000) +
     (item.metrics.salesSignal ?? 0) * 3 +
     (item.metrics.saves ?? 0);
 

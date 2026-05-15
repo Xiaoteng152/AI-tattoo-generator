@@ -1,4 +1,4 @@
-export type SourceName = "reddit" | "etsy";
+export type SourceName = "reddit" | "etsy" | "twitter";
 
 export type ConnectorInput = {
   keywords: string[];
@@ -22,6 +22,9 @@ export type ExtractedRawItem = {
     favorites?: number;
     salesSignal?: number;
     saves?: number;
+    retweets?: number;
+    replies?: number;
+    views?: number;
   };
   payload: Record<string, unknown>;
 };

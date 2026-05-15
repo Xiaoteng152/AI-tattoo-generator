@@ -6,6 +6,7 @@ Local MVP for the AI tattoo generator demo vertical.
 
 - Seeds a workflow config for `AI tattoo generator`.
 - Extracts Reddit evidence through public JSON search.
+- Extracts X/Twitter evidence through SoPilot hot tweets RSS by default, or X API v2 Recent Search when configured.
 - Extracts Etsy evidence through Etsy Open API v3 when `ETSY_API_KEY` is configured.
 - Saves Raw Items and Normalized Items.
 - Runs OpenAI-compatible enrichment when `OPENAI_API_KEY` exists, with rule-based fallback.
@@ -29,6 +30,9 @@ Open `http://localhost:3000`, then click `Run MVP workflow`.
 
 ```bash
 CONNECTORS_MODE="hybrid"
+TWITTER_SOURCE="sopilot"
+SOPILOT_HOT_TWEETS_URL="https://sopilot.net/rss/hottweets"
+X_BEARER_TOKEN="your_x_api_v2_bearer_token"
 ETSY_API_KEY="your_etsy_keystring"
 OPENAI_API_KEY="your_openai_or_compatible_key"
 OPENAI_BASE_URL="https://api.openai.com/v1"
@@ -38,8 +42,10 @@ OPENAI_MODEL="gpt-4o-mini"
 Connector modes:
 
 - `mock`: only bundled demo data.
-- `hybrid`: real Reddit, real Etsy only when `ETSY_API_KEY` exists, otherwise mock Etsy.
-- `real`: real Reddit and real Etsy; missing keys fail fast.
+- `hybrid`: real Reddit, SoPilot-backed X/Twitter by default, and real Etsy only when `ETSY_API_KEY` exists.
+- `real`: real Reddit, real X/Twitter, and real Etsy; missing keys fail fast.
+
+X/Twitter defaults to SoPilot's public RSS feed at `https://sopilot.net/rss/hottweets`, then filters the returned hot tweets by keyword inside the backtest workflow. To use the official X API instead, set `TWITTER_SOURCE="x-api"` and configure `X_BEARER_TOKEN`; that path uses `GET https://api.x.com/2/tweets/search/recent` and is limited by the X API plan, rate limits, and recent-search lookback window.
 
 Backtest endpoint:
 

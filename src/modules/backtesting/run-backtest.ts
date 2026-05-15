@@ -1,4 +1,5 @@
 import { getConnectors } from "@/modules/connectors";
+import type { SourceName } from "@/modules/connectors/types";
 import { enrichItem } from "@/modules/enrichment/enricher";
 import { normalizeRawItem } from "@/modules/normalization/normalize";
 import { scoreOpportunity } from "@/modules/scoring/opportunity-scorer";
@@ -8,13 +9,14 @@ export type BacktestInput = {
   keywords?: string[];
   limitPerSource?: number;
   lookbackDays?: number;
+  sources?: SourceName[];
 };
 
 export async function runConnectorBacktest(input: BacktestInput = {}) {
   const productDirection = input.productDirection ?? "比特币增长机会";
   const keywords = input.keywords?.length ? input.keywords : ["比特币"];
   const allowMockFallback = /tattoo|纹身/i.test(`${productDirection} ${keywords.join(" ")}`);
-  const connectors = getConnectors({ allowMockFallback });
+  const connectors = getConnectors({ allowMockFallback, sources: input.sources });
   const startedAt = new Date();
   const sourceReports = [];
   const opportunities = [];
