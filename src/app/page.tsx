@@ -84,7 +84,7 @@ export default async function Home() {
         </div>
         <div className="nav-links">
           <a>机会监控</a>
-          <a>DeepSearch</a>
+          <a href="/deepsearch">DeepSearch</a>
           <a>SEO 资产</a>
           <a>工作流</a>
         </div>

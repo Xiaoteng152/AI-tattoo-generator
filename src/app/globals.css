@@ -867,10 +867,128 @@ textarea {
   color: #d8d0c0;
 }
 
+.deepsearch-page {
+  min-height: 100vh;
+  padding: 42px clamp(16px, 5vw, 64px);
+}
+
+.deepsearch-hero {
+  display: grid;
+  gap: 24px;
+  margin: 0 auto 28px;
+  max-width: 1180px;
+}
+
+.back-link {
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.deepsearch-controls {
+  display: grid;
+  gap: 14px;
+  max-width: 760px;
+  padding: 18px;
+  border: 1px solid rgba(184, 255, 92, 0.18);
+  border-radius: 22px;
+  background: var(--card);
+}
+
+.deepsearch-controls .backtest-field {
+  max-width: none;
+}
+
+.deepsearch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0 auto;
+  max-width: 1180px;
+}
+
+.deepsearch-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid rgba(247, 242, 232, 0.12);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(184, 255, 92, 0.08), transparent 32%),
+    rgba(12, 13, 10, 0.8);
+}
+
+.deepsearch-card.wide {
+  grid-column: 1 / -1;
+}
+
+.deepsearch-card h2,
+.deepsearch-card h3 {
+  margin: 0;
+}
+
+.deepsearch-card p {
+  color: #d7cdbc;
+}
+
+.deepsearch-stats,
+.question-list,
+.bundle-list,
+.opportunity-list {
+  display: grid;
+  gap: 10px;
+}
+
+.deepsearch-stats {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.deepsearch-stats strong,
+.deepsearch-stats span,
+.question-row,
+.bundle-card,
+.opportunity-card {
+  padding: 12px;
+  border: 1px solid rgba(247, 242, 232, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.question-row,
+.bundle-card,
+.opportunity-card {
+  display: grid;
+  gap: 8px;
+}
+
+.question-row span,
+.bundle-card span,
+.opportunity-card span {
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.question-row small {
+  color: var(--muted);
+}
+
+.bundle-card a,
+.opportunity-card a {
+  color: var(--accent);
+  font-weight: 800;
+  text-decoration: none;
+}
+
 @media (max-width: 900px) {
   .hero,
   .dashboard-grid,
-  .metrics {
+  .metrics,
+  .deepsearch-grid,
+  .deepsearch-stats {
     grid-template-columns: 1fr;
   }
 

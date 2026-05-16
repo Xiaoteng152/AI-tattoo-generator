@@ -28,6 +28,13 @@ enum OutputAssetStatus {
   DISCARDED
 }
 
+enum DeepSearchRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 model WorkflowConfig {
   id               String           @id @default(cuid())
   name             String
@@ -177,4 +184,87 @@ model OutputAsset {
   opportunity   Opportunity?      @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
 
   @@map("output_assets")
+}
+
+model DeepSearchRun {
+  id                  String              @id @default(cuid())
+  status              DeepSearchRunStatus @default(PENDING)
+  goal                String
+  audience            String
+  seedKeywords        String[]            @map("seed_keywords")
+  currentStep         String              @default("pending") @map("current_step")
+  questionsCompleted  Int                 @default(0) @map("questions_completed")
+  questionsTotal      Int                 @default(0) @map("questions_total")
+  rawItemCount        Int                 @default(0) @map("raw_item_count")
+  evidenceBundleCount Int                 @default(0) @map("evidence_bundle_count")
+  opportunityCount    Int                 @default(0) @map("opportunity_count")
+  summary             Json?
+  error               String?
+  startedAt           DateTime?           @map("started_at")
+  completedAt         DateTime?           @map("completed_at")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  plan                DeepSearchPlan?
+  evidenceBundles     EvidenceBundle[]
+  report              DeepSearchReport?
+
+  @@map("deepsearch_runs")
+}
+
+model DeepSearchPlan {
+  id              String               @id @default(cuid())
+  deepSearchRunId String               @unique @map("deepsearch_run_id")
+  goal            String
+  audience        String
+  seedKeywords    String[]             @map("seed_keywords")
+  expectedOutputs String[]             @map("expected_outputs")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  deepSearchRun   DeepSearchRun        @relation(fields: [deepSearchRunId], references: [id], onDelete: Cascade)
+  questions       DeepSearchQuestion[]
+
+  @@map("deepsearch_plans")
+}
+
+model DeepSearchQuestion {
+  id           String           @id @default(cuid())
+  planId       String           @map("plan_id")
+  question     String
+  intent       String
+  sources      String[]
+  queries      String[]
+  position     Int
+  createdAt    DateTime         @default(now()) @map("created_at")
+  plan         DeepSearchPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  bundles      EvidenceBundle[]
+
+  @@map("deepsearch_questions")
+}
+
+model EvidenceBundle {
+  id                   String             @id @default(cuid())
+  deepSearchRunId      String             @map("deepsearch_run_id")
+  questionId           String             @map("question_id")
+  opportunityCandidate String             @map("opportunity_candidate")
+  sources              Json
+  compressedSummary    String             @map("compressed_summary")
+  confidence           Int
+  createdAt            DateTime           @default(now()) @map("created_at")
+  deepSearchRun        DeepSearchRun      @relation(fields: [deepSearchRunId], references: [id], onDelete: Cascade)
+  question             DeepSearchQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("evidence_bundles")
+}
+
+model DeepSearchReport {
+  id                    String        @id @default(cuid())
+  deepSearchRunId       String        @unique @map("deepsearch_run_id")
+  title                 String
+  summary               String
+  topOpportunities      Json          @map("top_opportunities")
+  risks                 String[]
+  nextSearchSuggestions String[]      @map("next_search_suggestions")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  deepSearchRun         DeepSearchRun @relation(fields: [deepSearchRunId], references: [id], onDelete: Cascade)
+
+  @@map("deepsearch_reports")
 }

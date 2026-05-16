@@ -531,3 +531,263 @@ DeepSearch 的第一个演示场景固定为 `AI tattoo generator`。
 - Google Trends 或关键词工具：搜索需求验证。
 
 TikTok 和 YouTube 放到后续版本，用来增强内容传播分析。
+
+## 基于当前仓库状态的下一阶段迭代规划
+
+当前仓库已经完成了 V0/V1 的大部分主链路：Next.js 页面、Prisma schema、Workflow Run、Reddit/Etsy connector、OpenAI-compatible enrichment、rules fallback、Opportunity scoring、Markdown SEO brief、Backtest 和 Dashboard 都已经存在。
+
+所以后续不要回头重做脚手架，应该直接围绕 DeepSearch 和运营化能力继续迭代。
+
+### 当前状态判断
+
+| 能力 | 当前状态 | 后续处理 |
+| --- | --- | --- |
+| Next.js 本地应用 | 已有 | 保留，继续扩页面 |
+| Prisma 数据模型 | 已有主链路表 | 新增 DeepSearch 和 Feedback 相关表 |
+| Workflow Run | 已有 | 增加 DeepSearch Run 和更细 step metadata |
+| Reddit Connector | 已有真实搜索 | 保留，补搜索问题和查询来源记录 |
+| Etsy Connector | 已有 API 接入点 | 保留，后续补商业证据字段 |
+| mock fallback | 已有 | 改成 tattoo 领域，不再用 crypto/twitter 示例 |
+| AI Enrichment | 已有 OpenAI-compatible + rules fallback | 保留，后续接 Planner/Summarizer |
+| Opportunity scoring | 已有逐条 item 评分 | 升级为跨源 Evidence Bundle 评分 |
+| Output Asset | 已有 Markdown SEO brief | 扩展到短视频选题、Pinterest Prompt、KOC/KOL outreach |
+| Dashboard | 已有单页 | 拆成 Dashboard / DeepSearch / Outputs / Workflows |
+
+### P0：先修正 MVP 一致性
+
+目标：让当前 demo 完全围绕 AI tattoo generator，不再出现 crypto 或不相关默认值。
+
+任务：
+
+1. 把 Backtest 默认 productDirection 从“比特币增长机会”改成 `AI tattoo generator`。
+2. 把默认关键词改成 `ai tattoo`、`tattoo generator`、`minimal tattoo`、`fine line tattoo`、`custom tattoo design`。
+3. 移除或替换 `mock-twitter` 中的 crypto 内容。
+4. 首页文案统一为 Reddit / Etsy / Pinterest / Trends，不再强调 X/Twitter。
+5. 检查 README、CONTEXT、task.md、product-flow 中的数据源描述是否一致。
+
+验收：
+
+- 本地首页、backtest、README 都只围绕 AI tattoo generator 讲故事。
+- 没有默认 crypto 示例出现在主要用户路径里。
+- 运行 backtest 时，输出能自然解释 tattoo 相关机会。
+
+### V1.5：DeepSearch Agent 最小实现
+
+目标：把当前“直接抓数据并逐条分析”升级为“先规划、再搜索、再压缩证据、再合成结论”的 Agent 工作流。
+
+任务：
+
+1. 新增 `agent-design.md`，明确 DeepSearch Agent 的 loop、tools、state、context compression、failure handling 和 report 输出。
+2. 新增 DeepSearch 数据结构：
+   - `DeepSearchPlan`
+   - `DeepSearchRun`
+   - `DeepSearchQuestion`
+   - `EvidenceBundle`
+   - `DeepSearchReport`
+3. 实现 Planner：输入 `AI tattoo generator`，生成 5-8 个研究问题和 source routing。
+4. 实现 Query Expansion：每个问题生成 3-5 个查询词。
+5. 复用现有 Reddit/Etsy connector 做第一版工具调用。
+6. 新增 Evidence Selector：每个来源保留 3-5 条代表证据。
+7. 新增 Evidence Bundle 压缩：把多源证据压成可追溯摘要。
+8. 新增 DeepSearch Report：输出机会、证据、置信度、推荐增长动作。
+9. 新增 `/deepsearch` 页面：展示 plan、source progress、evidence bundle、report。
+
+验收：
+
+- 点击运行 DeepSearch 后，先看到搜索计划，而不是直接看到结果。
+- 每个 Opportunity 至少有 2 条来源证据。
+- 每个结论都能追溯到 URL。
+- DeepSearch Report 不允许出现无证据结论。
+
+### V2：运营配置后台
+
+目标：把 demo 变成运营可配置产品，而不是写死的单流程。
+
+任务：
+
+1. 新增 Workflows 页面：配置产品方向、关键词、数据源、过滤条件。
+2. 新增 Prompt Templates 页面：管理 Planner、Enrichment、SEO brief、Outreach prompt。
+3. 新增 Output Templates 页面：管理 SEO brief、短视频选题、Pinterest Prompt、KOC/KOL outreach 模板。
+4. 新增 Run History 页面：查看每次 run 的 step logs、错误、输入输出数量。
+5. 新增 Output Assets 页面：审核、编辑、导出 Markdown/CSV。
+6. 为 Output Asset 增加更完整的审核状态和导出记录。
+
+验收：
+
+- 不改代码也能创建一个新 workflow。
+- 不改代码也能调整 prompt 和输出模板。
+- 每次运行都有可查看的过程记录。
+- 输出资产可以被审核、编辑、导出。
+
+### V3：跨源证据矩阵
+
+目标：从“单条数据生成机会”升级为“多来源证据共同证明机会”。
+
+任务：
+
+1. 新增 Pinterest 或 Google Trends connector。
+2. 实现跨源 dedupe 和 clustering。
+3. 新增 Evidence Matrix：按 Opportunity 展示 Reddit / Etsy / Pinterest / Trends 分别证明了什么。
+4. 升级 Opportunity Score：综合痛点强度、商业需求、视觉趋势、搜索需求、来源覆盖。
+5. 在 UI 中展示证据矩阵，而不是只展示 sourceUrls 数量。
+
+验收：
+
+- 一个 Opportunity 能聚合多个来源证据。
+- UI 能解释不同来源分别证明了什么。
+- 评分不再只依赖单条 enrichment，而是依赖 evidence bundle。
+
+### V4：增长资产生成工厂
+
+目标：把 Opportunity 转成多类型可执行资产。
+
+任务：
+
+1. SEO brief generator：标题、搜索意图、页面结构、FAQ、CTA。
+2. Short video generator：Hook、脚本结构、caption、hashtags。
+3. Pinterest Prompt generator：视觉风格、构图、纹身位置、生成约束。
+4. KOC/KOL outreach generator：匹配理由、私信模板、跟进状态。
+5. Output Assets 页面支持按类型筛选、编辑、审核、导出。
+
+验收：
+
+- 每个高分 Opportunity 至少能生成 2 种 Output Asset。
+- 输出内容保留来源证据引用。
+- 生成资产可以被运营审核和编辑。
+
+### V5：反馈回流和复盘
+
+目标：让系统从“生成建议”升级为“持续优化增长系统”。
+
+任务：
+
+1. 新增 FeedbackSignal 数据表。
+2. 支持录入曝光、点击、收藏、评论、注册、收入。
+3. 支持 CSV 导入执行结果。
+4. 把 Feedback Signal 关联到 Output Asset 和 Opportunity。
+5. 新增 Retrospective Report：本周发现、执行、有效、下一轮搜索建议。
+6. 让历史反馈影响下一轮 Opportunity Score。
+
+验收：
+
+- 能看到哪些资产被执行，效果如何。
+- 下一轮评分能参考历史表现。
+- 复盘报告能说明下一步该搜索什么。
+
+## DeepSeek 和 DeepSearch 的关系
+
+当前可以先用 DeepSeek 或 OpenAI-compatible 模型做 LLM 推理，但不要把“调用 DeepSeek 搜索/回答”当成 DeepSearch 本身。
+
+本项目的目标是自己实现 DeepSearch 的系统能力：
+
+1. 自己定义 Agent loop。
+2. 自己定义 tools/connectors。
+3. 自己保存 run state。
+4. 自己做 query planning 和 source routing。
+5. 自己做 evidence selection 和 context compression。
+6. 自己生成可追溯 report。
+
+DeepSeek 可以作为其中一个 LLM Provider，用来做 Planner、Enrichment、Summarizer 或 Report Writer。它不应该替代你的 DeepSearch 编排层。
+
+面试表达可以这样说：
+
+> 我没有把 DeepSearch 做成“调用一个搜索型模型然后显示答案”。我实现的是一个受控 Agent pipeline：先规划问题，再调用多源工具，再压缩证据，再合成机会，最后生成可执行增长资产。DeepSeek/OpenAI 只是其中的推理模型，系统的状态、工具、证据链和产出流程是我自己实现的。
+
+## DeepSearch Agent 初版自测清单 2026-05-16
+
+本清单用于对照 `agent-design.md` 检查当前 DeepSearch Agent 初版是否满足作品集 demo 的最小闭环。状态词：
+
+- `[x]` 已实现并通过本地自测。
+- `[~]` 有初版实现，但还不是最终形态。
+- `[ ]` 尚未实现，进入下一阶段。
+
+### Agent Loop
+
+- [x] Plan：`src/modules/deepsearch/planner.ts` 已能按 AI tattoo generator 生成默认研究计划。
+- [x] Route：`runner.ts` 已按 question.sources 路由到 Reddit、Etsy、X/Twitter connector。
+- [x] Search：已复用现有 connector 执行真实 Reddit、SoPilot-backed X/Twitter，以及 Etsy/mock fallback。
+- [x] Observe：Runner 已生成 Raw Item 风格 observation，并复用 `normalizeRawItem` 生成 Normalized Record。
+- [x] Enrich：已复用 `enrichItem`，支持 OpenAI-compatible 模型和 rules fallback。
+- [x] Compress：`evidence-compressor.ts` 已按 question/source 生成 Evidence Bundle。
+- [x] Synthesize：`report-writer.ts` 已从 Evidence Bundle 生成 Top Opportunities 和 DeepSearch Report。
+- [~] Act：报告里已生成推荐动作，但尚未真正创建 SEO brief、短视频脚本、Pinterest Prompt、KOC/KOL outreach 等 Output Asset。
+
+### 数据模型和持久化
+
+- [x] Prisma schema 已新增 `DeepSearchRun`、`DeepSearchPlan`、`DeepSearchQuestion`、`EvidenceBundle`、`DeepSearchReport`。
+- [x] 已新增 migration 草案：`prisma/migrations/20260516000000_deepsearch_agent/migration.sql`。
+- [~] 当前 Runner 仍是内存执行版本；schema 已准备好，但还没有把 run state、plan、bundle、report 写入数据库。
+- [ ] 还没有实现失败恢复、历史 run 查询和 run detail 页面。
+
+### Planner
+
+- [x] 规则版 Planner 已生成 6 个默认问题：痛点、设计前顾虑、风格趋势、SEO、内容传播、KOC/KOL。
+- [x] 每个问题包含 intent、sources 和 queries。
+- [~] Planner 输入目前通过 TypeScript 类型约束；尚未单独引入 Zod schema 校验 planner 输出。
+- [ ] LLM Planner 尚未接入。
+
+### Tools / Connectors
+
+- [x] RedditSearchTool：通过现有 Reddit connector 接入。
+- [x] EtsySearchTool：通过现有 Etsy connector 接入；无 key 时仍依赖既有 mock fallback。
+- [x] X/Twitter hot-post source：通过 SoPilot RSS 接入，用于内容传播和 creator_outreach 问题。
+- [~] Connector 失败时会记录 source progress error，其他来源继续执行。
+- [ ] PinterestSearchTool 尚未实现。
+- [ ] Google Trends / keyword tool 尚未实现。
+
+### Evidence Bundle
+
+- [x] 每个 bundle 绑定 `questionId`。
+- [x] 每个来源最多保留 5 条 representative evidence。
+- [x] 每条 representative evidence 保留 URL。
+- [x] 每条 representative evidence 有 `metricSummary` 和 `whyItMatters`。
+- [x] 没有证据的 question 不生成 Evidence Bundle。
+- [~] 压缩摘要目前是规则拼接；后续可接 LLM compressor 提升质量。
+
+### Opportunity / Report
+
+- [x] Report 包含 runId、title、summary、topOpportunities、risks、nextSearchSuggestions。
+- [x] Top Opportunity 保留 evidenceBundleIds、recommendedActions 和 sourceUrls。
+- [x] 无 source URL 的机会会被过滤，避免无证据结论进入报告。
+- [~] Opportunity score 复用现有单条 item scoring，并加 source coverage boost；尚未完整实现设计文档里的五因子加权评分。
+- [ ] Report 尚未保存为数据库记录，也未生成 Output Asset。
+
+### UI / API
+
+- [x] 已新增 `POST /api/deepsearch` 和 `GET /api/deepsearch`。
+- [x] 已新增 `/deepsearch` 页面，可输入目标和关键词运行 Agent。
+- [x] 页面展示 Run State、Plan、Source Progress、Evidence Bundles、Report 和 Top Opportunities。
+- [x] 首页导航已链接到 `/deepsearch`。
+- [~] UI 是最小可用版本，还没有做 run 历史、失败重试、bundle detail 展开和导出。
+
+### 本地自测结果
+
+- [x] `npm run typecheck` 通过。
+- [x] `npm run lint` 通过。
+- [x] `npx prisma validate` 通过。
+- [x] smoke test 通过：
+
+```bash
+ENRICHMENT_MODE=rules npx tsx -e "import { runDeepSearchAgent } from './src/modules/deepsearch/runner'; void (async () => { const result = await runDeepSearchAgent({ seedKeywords: ['ai tattoo'], limitPerSource: 1, lookbackDays: 7 }); console.log(JSON.stringify({ status: result.state.status, rawItems: result.state.rawItemCount, bundles: result.evidenceBundles.length, opportunities: result.report.topOpportunities.length, firstOpportunity: result.report.topOpportunities[0]?.title }, null, 2)); })();"
+```
+
+输出摘要：
+
+```json
+{
+  "status": "completed",
+  "rawItems": 13,
+  "bundles": 6,
+  "opportunities": 6,
+  "firstOpportunity": "tattoo placement preview: 用户在纹身设计前最担心什么？"
+}
+```
+
+### 下一步优先级
+
+1. 把 DeepSearch Runner 的 run state、plan、question、bundle、report 写入 Prisma。
+2. 给 `/deepsearch` 增加历史 run 列表和 run detail 页面。
+3. 给 Planner/ReportWriter 增加 Zod schema 校验和 LLM provider 实现。
+4. 实现真正的 Output Asset Generator：SEO brief、短视频脚本、Pinterest Prompt、KOC/KOL outreach。
+5. 接 Pinterest 或 Google Trends，补齐视觉趋势和搜索需求信号。
+
