@@ -1,166 +1,163 @@
-import { getConnectors } from "@/modules/connectors";
-import type { Connector, SourceName } from "@/modules/connectors/types";
-import { enrichItem } from "@/modules/enrichment/enricher";
-import { normalizeRawItem } from "@/modules/normalization/normalize";
-import { compressEvidenceBundles } from "./evidence-compressor";
-import { createDefaultDeepSearchPlan } from "./planner";
-import { writeDeepSearchReport } from "./report-writer";
-import type { DeepSearchInput, DeepSearchObservation, DeepSearchResult, DeepSearchRunState, DeepSearchSourceProgress } from "./types";
-
-const connectorSources: SourceName[] = ["reddit", "etsy", "twitter"];
+/**
+ * DeepSearch 编排入口：串联 understand → plan → subagents → context → extract → synthesise。
+ * 状态机：planning → searching → analyzing → reporting → completed|failed。
+ */
+import { getSourceSubagent } from "./agents/registry";
+import type {
+  AgentContext,
+  AgentTaskResult
+} from "./agents/types";
+import { applyContextBudget, reduceFindingsToBudget } from "./context-manager";
+import { extractEvidenceBundles } from "./evidence-extractor";
+import { planResearch } from "./planner";
+import { understandQuery } from "./query-understanding";
+import { synthesiseReport } from "./synthesis";
+import type {
+  AgentFinding,
+  DeepSearchInput,
+  DeepSearchObservation,
+  DeepSearchResult,
+  DeepSearchRunState,
+  DeepSearchSourceProgress,
+  QueryUnderstanding
+} from "./types";
 
 function makeRunId() {
   return `deepsearch_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function isConnectorSource(source: string): source is SourceName {
-  return connectorSources.includes(source as SourceName);
-}
-
-function getConnector(source: SourceName): Connector | undefined {
-  return getConnectors({ allowMockFallback: true, sources: [source] })[0];
-}
-
-function initialState(runId: string, goal: string): DeepSearchRunState {
+function buildInitialState(
+  runId: string,
+  understanding: QueryUnderstanding,
+  depth: DeepSearchInput["depth"]
+): DeepSearchRunState {
   return {
     runId,
     status: "pending",
-    goal,
+    vertical: understanding.vertical,
+    depth: depth ?? "standard",
+    goal: "",
     currentStep: "created",
     questionsCompleted: 0,
     questionsTotal: 0,
     rawItemCount: 0,
+    evidenceCount: 0,
+    findingCount: 0,
     evidenceBundleCount: 0,
     opportunityCount: 0
   };
 }
 
-export async function runDeepSearchAgent(input: DeepSearchInput = {}): Promise<DeepSearchResult> {
+export type RunDeepSearchAgentInput = DeepSearchInput & {
+  manualVertical?: DeepSearchInput["vertical"];
+};
+
+/** 执行一次完整 DeepSearch run；子 Agent 按 question 并发 */
+export async function runDeepSearchAgent(
+  input: RunDeepSearchAgentInput = {}
+): Promise<DeepSearchResult> {
   const runId = makeRunId();
-  const plan = createDefaultDeepSearchPlan(input);
-  const state = initialState(runId, plan.goal);
-  const progress: DeepSearchSourceProgress[] = [];
+  const query = input.query ?? input.goal ?? "Find source-backed growth opportunities";
+  const understanding = understandQuery({
+    query,
+    manualVertical: input.vertical,
+    manualSources: input.requiredSources
+  });
+  const plan = planResearch({ understanding, request: input });
+  const state = buildInitialState(runId, understanding, input.depth);
+  state.goal = plan.goal;
+  state.planId = plan.id;
+  state.questionsTotal = plan.questions.length;
+  state.depth = plan.depth;
+
+  const findings: AgentFinding[] = [];
   const observations: DeepSearchObservation[] = [];
+  const progress: DeepSearchSourceProgress[] = [];
   const seen = new Set<string>();
 
-  state.status = "running";
-  state.planId = plan.id;
-  state.currentStep = "planning";
-  state.questionsTotal = plan.questions.length;
+  const agentContext: AgentContext = {
+    runId,
+    vertical: plan.vertical,
+    contextBudget: plan.contextBudget,
+    lookbackDays: input.lookbackDays ?? 30,
+    limitPerSource: input.limitPerSource ?? 4
+  };
+
+  state.status = "planning";
 
   try {
-    for (const question of plan.questions) {
-      state.currentStep = `search:${question.id}`;
+    state.status = "searching";
 
-      for (const source of question.sources) {
-        const sourceStartedAt = Date.now();
+    const agentTasks: Array<Promise<AgentTaskResult>> = plan.questions.map((question) => {
+      const agent = getSourceSubagent(question.agent);
+      state.currentStep = `searching:${question.id}`;
+      return agent.run({ question, context: agentContext });
+    });
 
-        if (!isConnectorSource(source)) {
-          progress.push({
-            questionId: question.id,
-            query: question.queries[0] ?? plan.seedKeywords[0],
-            source,
-            ok: false,
-            itemCount: 0,
-            durationMs: Date.now() - sourceStartedAt,
-            error: `${source} connector is planned but not implemented yet`
-          });
+    const taskResults = await Promise.all(agentTasks);
+
+    for (const result of taskResults) {
+      findings.push(result.finding);
+      progress.push(...result.progress);
+
+      for (const observation of result.observations) {
+        // 多数据源并发时可能重复 externalId
+        const key = `${observation.questionId}:${observation.agent}:${observation.rawItem.externalId}`;
+
+        if (seen.has(key)) {
           continue;
         }
 
-        const connector = getConnector(source);
-
-        if (!connector) {
-          progress.push({
-            questionId: question.id,
-            query: question.queries[0] ?? plan.seedKeywords[0],
-            source,
-            ok: false,
-            itemCount: 0,
-            durationMs: Date.now() - sourceStartedAt,
-            error: `${source} connector is not available in the current connector mode`
-          });
-          continue;
-        }
-
-        const query = question.queries[0] ?? plan.seedKeywords[0];
-
-        try {
-          const rawItems = await connector.extract({
-            productDirection: plan.goal,
-            keywords: [query],
-            limitPerSource: input.limitPerSource ?? 4,
-            lookbackDays: input.lookbackDays ?? 30
-          });
-
-          for (const rawItem of rawItems) {
-            const observationKey = `${question.id}:${rawItem.source}:${rawItem.externalId}`;
-
-            if (seen.has(observationKey)) {
-              continue;
-            }
-
-            seen.add(observationKey);
-
-            const normalized = normalizeRawItem(rawItem);
-            const enrichment = await enrichItem(normalized);
-            observations.push({
-              questionId: question.id,
-              query,
-              source: rawItem.source,
-              rawItem: {
-                externalId: rawItem.externalId,
-                sourceUrl: rawItem.sourceUrl,
-                title: rawItem.title,
-                author: rawItem.author,
-                metrics: rawItem.metrics
-              },
-              normalized,
-              enrichment
-            });
-          }
-
-          progress.push({
-            questionId: question.id,
-            query,
-            source,
-            ok: true,
-            itemCount: rawItems.length,
-            durationMs: Date.now() - sourceStartedAt
-          });
-        } catch (error) {
-          progress.push({
-            questionId: question.id,
-            query,
-            source,
-            ok: false,
-            itemCount: 0,
-            durationMs: Date.now() - sourceStartedAt,
-            error: error instanceof Error ? error.message : "Unknown connector error"
-          });
-        }
+        seen.add(key);
+        observations.push(observation);
       }
 
       state.questionsCompleted += 1;
-      state.rawItemCount = observations.length;
     }
 
-    state.currentStep = "compress";
-    const evidenceBundles = compressEvidenceBundles(plan, observations);
-    state.evidenceBundleCount = evidenceBundles.length;
+    state.rawItemCount = observations.length;
+    state.findingCount = findings.length;
+    state.evidenceCount = findings.reduce((sum, finding) => sum + finding.evidence.length, 0);
 
-    state.currentStep = "report";
-    const report = writeDeepSearchReport(runId, plan, evidenceBundles, observations);
+    state.status = "analyzing";
+    state.currentStep = "context_manager";
+    const contextPlan = applyContextBudget({
+      budget: plan.contextBudget,
+      observations,
+      findings
+    });
+    const trimmedFindings = reduceFindingsToBudget(findings, plan.contextBudget);
+    state.evidenceCount = contextPlan.totalEvidence;
+
+    state.currentStep = "evidence_extractor";
+    const bundles = extractEvidenceBundles({
+      plan,
+      findings: trimmedFindings
+    });
+    state.evidenceBundleCount = bundles.length;
+
+    state.status = "reporting";
+    state.currentStep = "synthesis";
+    const reportDraft = synthesiseReport({
+      plan,
+      findings: trimmedFindings,
+      bundles,
+      observations
+    });
+    const report = { ...reportDraft, runId };
     state.opportunityCount = report.topOpportunities.length;
-    state.status = observations.length ? "completed" : "failed";
+
+    state.status = bundles.length ? "completed" : "failed";
     state.currentStep = state.status === "completed" ? "completed" : "failed:no-evidence";
-    state.error = observations.length ? undefined : "No source evidence was collected";
+    state.error = bundles.length ? undefined : "No evidence bundles were produced";
 
     return {
       state,
+      understanding,
       plan,
       progress,
-      evidenceBundles,
+      findings: trimmedFindings,
+      evidenceBundles: bundles,
       report
     };
   } catch (error) {
@@ -170,16 +167,25 @@ export async function runDeepSearchAgent(input: DeepSearchInput = {}): Promise<D
 
     return {
       state,
+      understanding,
       plan,
       progress,
+      findings,
       evidenceBundles: [],
       report: {
         runId,
+        vertical: plan.vertical,
+        depth: plan.depth,
         title: `DeepSearch failed: ${plan.goal}`,
-        summary: state.error,
+        executiveSummary: state.error,
+        whatIsTrending: [],
+        userPainPoints: [],
+        evidenceTable: [],
         topOpportunities: [],
+        recommendedActions: [],
         risks: [state.error],
-        nextSearchSuggestions: plan.seedKeywords
+        nextSearchSuggestions: plan.seedKeywords,
+        citations: []
       }
     };
   }
