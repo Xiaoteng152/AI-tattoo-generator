@@ -28,6 +28,9 @@ flowchart TD
   G --> H[Scoring Layer<br/>机会评分]
   H --> I[Opportunities<br/>SEO 页面 / 内容选题 / 产品实验 / KOC/KOL 方向]
 
+  I --> DS[DeepSearch<br/>围绕单个机会继续规划问题 / 聚合证据 / 生成研究报告]
+  DS --> I
+
   I --> J[Output Generation<br/>增长资产生成]
   J --> J1[SEO Brief Markdown]
   J --> J2[短视频选题]
@@ -60,6 +63,7 @@ flowchart TD
 - Opportunity：基于证据和互动分生成机会评分。
 - Output Asset：生成 Markdown SEO brief。
 - Backtest：不依赖数据库，验证 Connector 和分析链路是否可用。
+- DeepSearch：从 Dashboard 或单个 Opportunity 进入，带着当前产品方向、关键词和机会标题继续做可追溯研究。
 
 ## 后续扩展方向
 

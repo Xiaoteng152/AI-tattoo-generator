@@ -29,10 +29,10 @@ export function RunWorkflowButton() {
 
   return (
     <div>
-      <button className="run-button" disabled={isRunning} onClick={runWorkflow}>
-        {isRunning ? "正在扫描信号..." : "运行 MVP 工作流"}
+      <button className="ds-primary-btn" disabled={isRunning} onClick={runWorkflow} type="button">
+        {isRunning ? "Workflow running…" : "Run MVP Workflow"}
       </button>
-      {error ? <p className="muted">{error}</p> : null}
+      {error ? <p className="ds-warning">{error}</p> : null}
     </div>
   );
 }

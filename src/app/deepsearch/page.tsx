@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * DeepSearch 调试页：按 pipeline 阶段展示 run state、理解、计划、进度、finding、bundle 与报告。
+ * DeepSearch 运营页：Editorial Command Center 布局，保留完整 pipeline 数据绑定。
  */
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type VerticalId =
   | "ai_tattoo_generator"
@@ -134,6 +134,16 @@ type DeepSearchResult = {
   };
 };
 
+type TimelineStatus = "ok" | "fail" | "pending";
+
+type TimelineStep = {
+  id: string;
+  title: string;
+  detail: string;
+  status: TimelineStatus;
+  pill: string;
+};
+
 const verticalLabels: Record<VerticalId, string> = {
   ai_tattoo_generator: "AI tattoo generator",
   ai_saas: "AI SaaS",
@@ -148,16 +158,228 @@ const depthLabels: Record<Depth, string> = {
   deep: "Deep research"
 };
 
-const defaultQuery = "Find growth opportunities for AI tattoo generator around fine line tattoo ideas";
+const priorityLabels: Record<OpportunityCard["priority"], string> = {
+  high: "high",
+  medium: "med",
+  low: "low"
+};
+
+const defaultQuery =
+  "Find growth opportunities for AI tattoo generator around fine line tattoo ideas";
+
+const navItems = [
+  { id: "ds-query", label: "Query" },
+  { id: "ds-plan", label: "Plan" },
+  { id: "ds-evidence", label: "Evidence" },
+  { id: "ds-report", label: "Report" }
+] as const;
+
+function isVerticalId(value: string | null): value is VerticalId {
+  return value !== null && Object.prototype.hasOwnProperty.call(verticalLabels, value);
+}
+
+function isDepth(value: string | null): value is Depth {
+  return value === "quick" || value === "standard" || value === "deep";
+}
+
+function readUrlDefaults(): {
+  query: string;
+  vertical: VerticalId | "auto";
+  depth: Depth;
+  keywords: string;
+} {
+  if (typeof window === "undefined") {
+    return {
+      query: defaultQuery,
+      vertical: "auto",
+      depth: "standard",
+      keywords: ""
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const verticalParam = params.get("vertical");
+  const depthParam = params.get("depth");
+
+  return {
+    query: params.get("q")?.trim() || defaultQuery,
+    vertical: isVerticalId(verticalParam)
+      ? verticalParam
+      : verticalParam === "auto"
+        ? "auto"
+        : "auto",
+    depth: isDepth(depthParam) ? depthParam : "standard",
+    keywords: params.get("keywords")?.trim() ?? ""
+  };
+}
+
+function buildTimeline(result: DeepSearchResult | null, isRunning: boolean): TimelineStep[] {
+  if (isRunning) {
+    return [
+      {
+        id: "understanding",
+        title: "Query Understanding",
+        detail: "Routing vertical and required sources…",
+        status: "pending",
+        pill: "…"
+      },
+      {
+        id: "plan",
+        title: "Research Plan",
+        detail: "Questions, sources, context budget",
+        status: "pending",
+        pill: "…"
+      },
+      {
+        id: "progress",
+        title: "Source Collection",
+        detail: "Sub-agents fetching normalized signals",
+        status: "pending",
+        pill: "…"
+      },
+      {
+        id: "findings",
+        title: "Agent Findings",
+        detail: "Per-agent summaries with citations",
+        status: "pending",
+        pill: "…"
+      },
+      {
+        id: "bundles",
+        title: "Evidence Bundles",
+        detail: "Compressed claims with citations",
+        status: "pending",
+        pill: "…"
+      },
+      {
+        id: "opportunities",
+        title: "Opportunity Cards",
+        detail: "Evidence-ranked growth actions",
+        status: "pending",
+        pill: "…"
+      }
+    ];
+  }
+
+  if (!result) {
+    return [
+      {
+        id: "understanding",
+        title: "Query Understanding",
+        detail: "Route to vertical from natural-language query",
+        status: "pending",
+        pill: "—"
+      },
+      {
+        id: "plan",
+        title: "Research Plan",
+        detail: "Questions, sources, context budget",
+        status: "pending",
+        pill: "—"
+      },
+      {
+        id: "bundles",
+        title: "Evidence Bundles",
+        detail: "Compressed claims with citations",
+        status: "pending",
+        pill: "—"
+      }
+    ];
+  }
+
+  const progressFailed = result.progress.some((row) => !row.ok);
+  const progressOk = result.progress.length > 0 && !progressFailed;
+
+  return [
+    {
+      id: "understanding",
+      title: "Query Understanding",
+      detail: `route to ${verticalLabels[result.understanding.vertical] ?? result.understanding.vertical} · ${result.understanding.intent}`,
+      status: "ok",
+      pill: "OK"
+    },
+    {
+      id: "plan",
+      title: "Research Plan",
+      detail: `${result.plan.questions.length} questions · budget raw≤${result.plan.contextBudget.maxRawItemsPerAgent}`,
+      status: "ok",
+      pill: "OK"
+    },
+    {
+      id: "progress",
+      title: "Source Collection",
+      detail: `${result.progress.filter((row) => row.ok).length}/${result.progress.length} source runs · ${result.state.rawItemCount} raw items`,
+      status: progressFailed ? "fail" : progressOk ? "ok" : "pending",
+      pill: progressFailed ? "FAIL" : progressOk ? "OK" : "—"
+    },
+    {
+      id: "findings",
+      title: "Agent Findings",
+      detail: `${result.findings.length} agent summaries · avg confidence ${Math.round(
+        (result.findings.reduce((sum, finding) => sum + finding.confidence, 0) /
+          Math.max(result.findings.length, 1)) *
+          100
+      )}%`,
+      status: result.findings.length ? "ok" : "pending",
+      pill: result.findings.length ? "OK" : "—"
+    },
+    {
+      id: "bundles",
+      title: "Evidence Bundles",
+      detail: `${result.evidenceBundles.length} compressed bundles · ${result.state.evidenceCount} evidence`,
+      status: result.evidenceBundles.length ? "ok" : "pending",
+      pill: result.evidenceBundles.length ? "OK" : "—"
+    },
+    {
+      id: "opportunities",
+      title: "Opportunity Cards",
+      detail: `${result.report.topOpportunities.length} ranked opportunities`,
+      status: result.report.topOpportunities.length ? "ok" : "pending",
+      pill: result.report.topOpportunities.length ? "OK" : "—"
+    }
+  ];
+}
+
+function buildReportBrief(result: DeepSearchResult): string {
+  const lines: string[] = [
+    `# ${result.report.title}`,
+    "",
+    result.report.executiveSummary,
+    "",
+    "## Trending",
+    ...result.report.whatIsTrending.map((item) => `- ${item}`),
+    "",
+    "## Pain points",
+    ...result.report.userPainPoints.map((item) => `- ${item}`),
+    "",
+    "## Recommended actions",
+    ...result.report.recommendedActions.map((item) => `- ${item}`),
+    "",
+    "## Risks",
+    ...result.report.risks.map((item) => `- ${item}`),
+    "",
+    "## Next search suggestions",
+    ...result.report.nextSearchSuggestions.map((item) => `- ${item}`)
+  ];
+
+  return lines.join("\n");
+}
 
 export default function DeepSearchPage() {
-  const [query, setQuery] = useState(defaultQuery);
-  const [vertical, setVertical] = useState<VerticalId | "auto">("auto");
-  const [depth, setDepth] = useState<Depth>("standard");
-  const [keywords, setKeywords] = useState("");
+  const [urlDefaults] = useState(readUrlDefaults);
+  const [query, setQuery] = useState(urlDefaults.query);
+  const [vertical, setVertical] = useState<VerticalId | "auto">(urlDefaults.vertical);
+  const [depth, setDepth] = useState<Depth>(urlDefaults.depth);
+  const [keywords, setKeywords] = useState(urlDefaults.keywords);
   const [result, setResult] = useState<DeepSearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [activeNav, setActiveNav] = useState<(typeof navItems)[number]["id"]>("ds-query");
+
+  const timeline = useMemo(
+    () => buildTimeline(result, isRunning),
+    [result, isRunning]
+  );
 
   async function runDeepSearch() {
     const seedKeywords = keywords
@@ -168,6 +390,7 @@ export default function DeepSearchPage() {
     setIsRunning(true);
     setError(null);
     setResult(null);
+    setActiveNav("ds-plan");
 
     const response = await fetch("/api/deepsearch", {
       method: "POST",
@@ -192,285 +415,358 @@ export default function DeepSearchPage() {
           ? payload.error
           : payload?.result?.state.error ?? "DeepSearch run failed"
       );
+      setActiveNav("ds-query");
       return;
     }
 
     setResult(payload.result);
+    setActiveNav("ds-report");
   }
 
+  function handleNavClick(sectionId: (typeof navItems)[number]["id"]) {
+    setActiveNav(sectionId);
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  const opportunities = result?.report.topOpportunities ?? [];
+
   return (
-    <main className="deepsearch-page">
-      <section className="deepsearch-hero">
-        <Link className="back-link" href="/">
-          返回 Dashboard
-        </Link>
-        <div>
-          <span className="hot-badge">DeepSearch Agent · v2</span>
-          <h1 className="title">垂类感知的可追溯增长研究</h1>
-          <p className="lead">
-            按 DEEPSEARCH.md：先由 Query Understanding 识别垂类，再交给 Vertical Router 调度子 Agent，
-            最后压缩证据并生成 Opportunity Card。所有 Prompt、垂类、上下文预算都以配置形式管理。
-          </p>
-        </div>
-        <div className="deepsearch-controls">
-          <label className="backtest-field">
-            <span>研究问题</span>
-            <input
-              disabled={isRunning}
-              onChange={(event) => setQuery(event.target.value)}
-              value={query}
-            />
-          </label>
-          <label className="backtest-field">
-            <span>垂类</span>
-            <select
-              disabled={isRunning}
-              onChange={(event) => setVertical(event.target.value as VerticalId | "auto")}
-              value={vertical}
-            >
-              <option value="auto">Auto (route from query)</option>
-              {(
-                Object.keys(verticalLabels) as VerticalId[]
-              ).map((id) => (
-                <option key={id} value={id}>
-                  {verticalLabels[id]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="backtest-field">
-            <span>深度</span>
-            <select
-              disabled={isRunning}
-              onChange={(event) => setDepth(event.target.value as Depth)}
-              value={depth}
-            >
-              <option value="quick">{depthLabels.quick}</option>
-              <option value="standard">{depthLabels.standard}</option>
-              <option value="deep">{depthLabels.deep}</option>
-            </select>
-          </label>
-          <label className="backtest-field">
-            <span>种子关键词 (可选)</span>
-            <input
-              disabled={isRunning}
-              onChange={(event) => setKeywords(event.target.value)}
-              value={keywords}
-              placeholder="ai tattoo, fine line tattoo"
-            />
-          </label>
-          <button
-            className="ghost-button"
-            disabled={isRunning || !query.trim()}
-            onClick={runDeepSearch}
-            type="button"
-          >
-            {isRunning ? "DeepSearch 正在运行..." : "运行 DeepSearch Agent"}
-          </button>
-          {error ? <p className="warning">{error}</p> : null}
-        </div>
-      </section>
+    <main className="ds-page">
+      <div className="ds-frame">
+        <header className="ds-top">
+          <Link className="ds-logo" href="/">
+            <span aria-hidden className="ds-logo-dot" />
+            DeepSearch
+          </Link>
+          <nav aria-label="DeepSearch sections" className="ds-nav">
+            {navItems.map((item) => (
+              <a
+                key={item.id}
+                className={activeNav === item.id ? "is-active" : undefined}
+                href={`#${item.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleNavClick(item.id);
+                }}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        </header>
 
-      {result ? (
-        <section className="deepsearch-grid">
-          {/* 按 DEEPSEARCH pipeline 顺序展示各阶段产物 */}
-          <article className="deepsearch-card">
-            <h2>Run State</h2>
-            <div className="deepsearch-stats">
-              <strong>{result.state.status}</strong>
-              <span>vertical: {verticalLabels[result.state.vertical] ?? result.state.vertical}</span>
-              <span>depth: {depthLabels[result.state.depth] ?? result.state.depth}</span>
-              <span>{result.state.currentStep}</span>
-              <span>
-                {result.state.questionsCompleted}/{result.state.questionsTotal} questions
-              </span>
-              <span>{result.state.rawItemCount} raw items</span>
-              <span>{result.state.findingCount} findings</span>
-              <span>{result.state.evidenceCount} evidence</span>
-              <span>{result.state.evidenceBundleCount} bundles</span>
-              <span>{result.state.opportunityCount} opportunities</span>
-            </div>
-          </article>
-
-          <article className="deepsearch-card">
-            <h2>Query Understanding</h2>
-            <div className="question-list">
-              <div className="question-row">
-                <span>vertical</span>
-                <strong>{verticalLabels[result.understanding.vertical] ?? result.understanding.vertical}</strong>
-                <small>{result.understanding.rationale}</small>
-              </div>
-              <div className="question-row">
-                <span>market</span>
-                <strong>{result.understanding.targetMarket}</strong>
-                <small>{result.understanding.timeRange}</small>
-              </div>
-              <div className="question-row">
-                <span>sources</span>
-                <strong>{result.understanding.requiredSources.join(" / ")}</strong>
-                <small>{result.understanding.keywords.join(", ")}</small>
-              </div>
-            </div>
-          </article>
-
-          <article className="deepsearch-card">
-            <h2>Plan</h2>
-            <p className="muted">
-              budget: raw≤{result.plan.contextBudget.maxRawItemsPerAgent} / evidence≤
-              {result.plan.contextBudget.maxEvidencePerAgent} per agent
-            </p>
-            <div className="question-list">
-              {result.plan.questions.map((question) => (
-                <div className="question-row" key={question.id}>
-                  <span>{question.intent}</span>
-                  <strong>{question.question}</strong>
-                  <small>
-                    {question.agent} · {question.sources.join(" / ")}
-                  </small>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="deepsearch-card">
-            <h2>Source Progress</h2>
-            <div className="question-list">
-              {result.progress.map((progress, index) => (
-                <div
-                  className="question-row"
-                  key={`${progress.questionId}-${progress.source}-${progress.query}-${index}`}
+        <div className="ds-body">
+          <div className="ds-deep-grid">
+            <aside className="ds-panel ds-control-panel" id="ds-query">
+              <p className="ds-small-label">Research Input</p>
+              <div className="ds-input-stack">
+                <label className="ds-field">
+                  <span>研究问题</span>
+                  <textarea
+                    disabled={isRunning}
+                    onChange={(event) => setQuery(event.target.value)}
+                    value={query}
+                  />
+                </label>
+                <label className="ds-field">
+                  <span>垂类</span>
+                  <select
+                    disabled={isRunning}
+                    onChange={(event) => setVertical(event.target.value as VerticalId | "auto")}
+                    value={vertical}
+                  >
+                    <option value="auto">Auto (route from query)</option>
+                    {(Object.keys(verticalLabels) as VerticalId[]).map((id) => (
+                      <option key={id} value={id}>
+                        {verticalLabels[id]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="ds-field">
+                  <span>深度</span>
+                  <select
+                    disabled={isRunning}
+                    onChange={(event) => setDepth(event.target.value as Depth)}
+                    value={depth}
+                  >
+                    <option value="quick">{depthLabels.quick}</option>
+                    <option value="standard">{depthLabels.standard}</option>
+                    <option value="deep">{depthLabels.deep}</option>
+                  </select>
+                </label>
+                <label className="ds-field">
+                  <span>种子关键词 (可选)</span>
+                  <input
+                    disabled={isRunning}
+                    onChange={(event) => setKeywords(event.target.value)}
+                    placeholder="ai tattoo, fine line tattoo"
+                    value={keywords}
+                  />
+                </label>
+                <button
+                  className="ds-primary-btn"
+                  disabled={isRunning || !query.trim()}
+                  onClick={runDeepSearch}
+                  type="button"
                 >
-                  <span>{progress.ok ? "OK" : "FAIL"}</span>
-                  <strong>
-                    {progress.agent} · {progress.source} · {progress.itemCount} items · {progress.durationMs}ms
-                  </strong>
-                  <small>{progress.error ?? progress.query}</small>
-                </div>
-              ))}
-            </div>
-          </article>
+                  {isRunning ? "DeepSearch 正在运行…" : "Run DeepSearch Agent"}
+                </button>
+                {error ? <p className="ds-warning">{error}</p> : null}
+              </div>
+            </aside>
 
-          <article className="deepsearch-card wide">
-            <h2>Agent Findings</h2>
-            <div className="bundle-list">
-              {result.findings.map((finding) => (
-                <section className="bundle-card" key={finding.id}>
-                  <div>
-                    <span>
-                      {finding.agent} · confidence {(finding.confidence * 100).toFixed(0)}%
-                    </span>
-                    <h3>{finding.summary}</h3>
-                    {finding.gaps.length ? (
-                      <p className="muted">Gaps: {finding.gaps.join("; ")}</p>
-                    ) : null}
-                  </div>
-                  {finding.evidence.slice(0, 3).map((evidence) => (
-                    <a
-                      href={evidence.url}
-                      key={evidence.id}
-                      rel="noreferrer"
-                      target="_blank"
+            <section className="ds-panel" id="ds-plan">
+              <p className="ds-small-label">Agent Timeline</p>
+              <div className="ds-timeline">
+                {timeline.map((step) => (
+                  <div className="ds-timeline-row" key={step.id}>
+                    <span
+                      aria-hidden
+                      className={`ds-timeline-dot${
+                        step.status === "pending"
+                          ? " is-pending"
+                          : step.status === "fail"
+                            ? " is-fail"
+                            : ""
+                      }`}
+                    />
+                    <div>
+                      <b>{step.title}</b>
+                      <small>{step.detail}</small>
+                    </div>
+                    <span
+                      className={`ds-score-pill${
+                        step.status === "pending"
+                          ? " is-pending"
+                          : step.status === "fail"
+                            ? " is-fail"
+                            : ""
+                      }`}
                     >
-                      [{evidence.sourceType}] {evidence.title}
-                    </a>
-                  ))}
-                </section>
-              ))}
-            </div>
-          </article>
-
-          <article className="deepsearch-card wide">
-            <h2>Evidence Bundles</h2>
-            <div className="bundle-list">
-              {result.evidenceBundles.map((bundle) => (
-                <section className="bundle-card" key={bundle.id}>
-                  <div>
-                    <span>confidence {bundle.confidence}%</span>
-                    <h3>{bundle.opportunityCandidate}</h3>
-                    <p>{bundle.compressedSummary}</p>
+                      {step.pill}
+                    </span>
                   </div>
-                  {bundle.sources.flatMap((source) =>
-                    source.representativeEvidence.slice(0, 2).map((evidence) => (
-                      <a href={evidence.url} key={evidence.id} rel="noreferrer" target="_blank">
-                        {source.source}: {evidence.title}
-                      </a>
+                ))}
+              </div>
+              {result ? (
+                <p className="ds-empty" style={{ marginTop: 14 }}>
+                  {result.state.status} · {result.state.currentStep} ·{" "}
+                  {result.state.questionsCompleted}/{result.state.questionsTotal} questions
+                </p>
+              ) : (
+                <p className="ds-empty" style={{ marginTop: 14 }}>
+                  提交研究问题后，将按 pipeline 展示 Query Understanding → Plan → Evidence → Report。
+                </p>
+              )}
+            </section>
+          </div>
+
+          {result ? (
+            <>
+              <div className="ds-metric-strip" id="ds-evidence">
+                <div className="ds-metric-cell">
+                  <strong>{result.state.rawItemCount}</strong>
+                  <span>Raw Items</span>
+                </div>
+                <div className="ds-metric-cell">
+                  <strong>{result.state.evidenceCount}</strong>
+                  <span>Evidence</span>
+                </div>
+                <div className="ds-metric-cell">
+                  <strong>{result.state.findingCount}</strong>
+                  <span>Findings</span>
+                </div>
+                <div className="ds-metric-cell">
+                  <strong>{result.state.opportunityCount}</strong>
+                  <span>Opportunities</span>
+                </div>
+              </div>
+
+              <div className="ds-report-grid" id="ds-report">
+                <section className="ds-panel">
+                  <p className="ds-small-label">Opportunity Cards</p>
+                  {opportunities.length ? (
+                    opportunities.map((opportunity, index) => (
+                      <article className="ds-list-line" key={opportunity.id}>
+                        <span>{String(index + 1).padStart(2, "0")}</span>
+                        <div>
+                          <b>{opportunity.title}</b>
+                          <small>
+                            score {opportunity.score} · evidence {opportunity.evidenceCount} ·{" "}
+                            {opportunity.whyNow}
+                          </small>
+                        </div>
+                        <span className="ds-score-pill">{priorityLabels[opportunity.priority]}</span>
+                      </article>
                     ))
+                  ) : (
+                    <p className="ds-empty">本轮未生成机会卡片。</p>
                   )}
                 </section>
-              ))}
-            </div>
-          </article>
 
-          <article className="deepsearch-card wide">
-            <h2>Opportunity Cards</h2>
-            <p>{result.report.executiveSummary}</p>
-            <div className="opportunity-list">
-              {result.report.topOpportunities.map((opportunity) => (
-                <section className="opportunity-card" key={opportunity.id}>
-                  <div>
-                    <span>
-                      priority {opportunity.priority} · score {opportunity.score}% · confidence
-                      {" "}
-                      {opportunity.confidence}% · evidence {opportunity.evidenceCount}
-                    </span>
-                    <h3>{opportunity.title}</h3>
-                    <p>
-                      <strong>Why now:</strong> {opportunity.whyNow}
-                    </p>
-                    <p>
-                      <strong>Audience:</strong> {opportunity.audience}
-                    </p>
-                  </div>
-                  <ul>
-                    {opportunity.growthActions.map((action) => (
-                      <li key={action}>{action}</li>
-                    ))}
-                  </ul>
-                  {opportunity.sourceUrls.slice(0, 3).map((url) => (
-                    <a href={url} key={url} rel="noreferrer" target="_blank">
-                      {url}
-                    </a>
-                  ))}
+                <section className="ds-panel">
+                  <p className="ds-small-label">Final Report</p>
+                  <div className="ds-brief-block">{buildReportBrief(result)}</div>
                 </section>
-              ))}
-            </div>
-          </article>
+              </div>
 
-          <article className="deepsearch-card wide">
-            <h2>Report Sections</h2>
-            <h3>What is trending</h3>
-            <ul>
-              {result.report.whatIsTrending.map((value) => (
-                <li key={value}>{value}</li>
-              ))}
-            </ul>
-            <h3>User pain points</h3>
-            <ul>
-              {result.report.userPainPoints.map((value, index) => (
-                <li key={`${value}-${index}`}>{value}</li>
-              ))}
-            </ul>
-            <h3>Recommended actions</h3>
-            <ul>
-              {result.report.recommendedActions.map((value, index) => (
-                <li key={`${value}-${index}`}>{value}</li>
-              ))}
-            </ul>
-            <h3>Risks and uncertainty</h3>
-            <ul>
-              {result.report.risks.map((value, index) => (
-                <li key={`${value}-${index}`}>{value}</li>
-              ))}
-            </ul>
-            <h3>Next search suggestions</h3>
-            <ul>
-              {result.report.nextSearchSuggestions.map((value) => (
-                <li key={value}>{value}</li>
-              ))}
-            </ul>
-          </article>
-        </section>
-      ) : null}
+              <details className="ds-advanced">
+                <summary>高级 / 调试</summary>
+                <div className="ds-advanced-body">
+                  <article className="ds-debug-card">
+                    <h3>Run State</h3>
+                    <div className="ds-debug-row">
+                      <span>status</span>
+                      <strong>{result.state.status}</strong>
+                      <small>
+                        vertical: {verticalLabels[result.state.vertical] ?? result.state.vertical} ·
+                        depth: {depthLabels[result.state.depth] ?? result.state.depth}
+                      </small>
+                    </div>
+                    <div className="ds-debug-row">
+                      <span>counts</span>
+                      <small>
+                        bundles {result.state.evidenceBundleCount} · findings{" "}
+                        {result.state.findingCount}
+                      </small>
+                    </div>
+                  </article>
+
+                  <article className="ds-debug-card">
+                    <h3>Query Understanding</h3>
+                    <div className="ds-debug-row">
+                      <span>intent</span>
+                      <strong>{result.understanding.intent}</strong>
+                      <small>{result.understanding.rationale}</small>
+                    </div>
+                    <div className="ds-debug-row">
+                      <span>market</span>
+                      <strong>{result.understanding.targetMarket}</strong>
+                      <small>
+                        {result.understanding.timeRange} ·{" "}
+                        {result.understanding.requiredSources.join(" / ")}
+                      </small>
+                    </div>
+                    <div className="ds-debug-row">
+                      <span>keywords</span>
+                      <small>{result.understanding.keywords.join(", ")}</small>
+                    </div>
+                  </article>
+
+                  <article className="ds-debug-card">
+                    <h3>Plan</h3>
+                    <p className="ds-empty">{result.plan.goal}</p>
+                    {result.plan.questions.map((question) => (
+                      <div className="ds-debug-row" key={question.id}>
+                        <span>{question.intent}</span>
+                        <strong>{question.question}</strong>
+                        <small>
+                          {question.agent} · {question.sources.join(" / ")}
+                        </small>
+                      </div>
+                    ))}
+                  </article>
+
+                  <article className="ds-debug-card">
+                    <h3>Source Progress</h3>
+                    {result.progress.map((progress, index) => (
+                      <div
+                        className="ds-debug-row"
+                        key={`${progress.questionId}-${progress.source}-${progress.query}-${index}`}
+                      >
+                        <span>{progress.ok ? "OK" : "FAIL"}</span>
+                        <strong>
+                          {progress.agent} · {progress.source} · {progress.itemCount} items ·{" "}
+                          {progress.durationMs}ms
+                        </strong>
+                        <small>{progress.error ?? progress.query}</small>
+                      </div>
+                    ))}
+                  </article>
+
+                  <article className="ds-debug-card">
+                    <h3>Agent Findings</h3>
+                    {result.findings.map((finding) => (
+                      <div className="ds-debug-row" key={finding.id}>
+                        <span>
+                          {finding.agent} · {(finding.confidence * 100).toFixed(0)}%
+                        </span>
+                        <strong>{finding.summary}</strong>
+                        {finding.gaps.length ? (
+                          <small>Gaps: {finding.gaps.join("; ")}</small>
+                        ) : null}
+                        {finding.evidence.slice(0, 3).map((evidence) => (
+                          <a href={evidence.url} key={evidence.id} rel="noreferrer" target="_blank">
+                            [{evidence.sourceType}] {evidence.title}
+                          </a>
+                        ))}
+                      </div>
+                    ))}
+                  </article>
+
+                  <article className="ds-debug-card">
+                    <h3>Evidence Bundles</h3>
+                    {result.evidenceBundles.map((bundle) => (
+                      <div className="ds-debug-row" key={bundle.id}>
+                        <span>confidence {bundle.confidence}%</span>
+                        <strong>{bundle.opportunityCandidate}</strong>
+                        <small>{bundle.compressedSummary}</small>
+                        {bundle.sources.flatMap((source) =>
+                          source.representativeEvidence.slice(0, 2).map((evidence) => (
+                            <a
+                              href={evidence.url}
+                              key={evidence.id}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              {source.source}: {evidence.title}
+                            </a>
+                          ))
+                        )}
+                      </div>
+                    ))}
+                  </article>
+
+                  {result.report.citations.length ? (
+                    <article className="ds-debug-card">
+                      <h3>Citations</h3>
+                      {result.report.citations.map((citation) => (
+                        <div className="ds-debug-row" key={citation.id}>
+                          <span>{citation.sourceType}</span>
+                          <a href={citation.url} rel="noreferrer" target="_blank">
+                            {citation.title}
+                          </a>
+                        </div>
+                      ))}
+                    </article>
+                  ) : null}
+
+                  {opportunities.map((opportunity) => (
+                    <article className="ds-debug-card" key={`detail-${opportunity.id}`}>
+                      <h3>{opportunity.title}</h3>
+                      <div className="ds-debug-row">
+                        <span>audience</span>
+                        <small>{opportunity.audience}</small>
+                      </div>
+                      <ul>
+                        {opportunity.growthActions.map((action) => (
+                          <li key={action}>{action}</li>
+                        ))}
+                      </ul>
+                      {opportunity.sourceUrls.map((url) => (
+                        <a href={url} key={url} rel="noreferrer" target="_blank">
+                          {url}
+                        </a>
+                      ))}
+                    </article>
+                  ))}
+                </div>
+              </details>
+            </>
+          ) : null}
+        </div>
+      </div>
     </main>
   );
 }

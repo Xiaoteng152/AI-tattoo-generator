@@ -194,11 +194,11 @@ export function BacktestButton() {
   }
 
   return (
-    <div className="backtest-console">
-      <div className="source-tabs" aria-label="选择回测数据源">
+    <div className="ds-backtest-console">
+      <div className="ds-source-tabs" aria-label="选择回测数据源">
         {sourceTabs.map((source) => (
           <button
-            className={`source-tab ${selectedSource === source.id ? "active" : ""}`}
+            className={`ds-source-tab${selectedSource === source.id ? " is-active" : ""}`}
             disabled={isRunning}
             key={source.id}
             onClick={() => setSelectedSource(source.id)}
@@ -208,7 +208,7 @@ export function BacktestButton() {
           </button>
         ))}
       </div>
-      <label className="backtest-field">
+      <label className="ds-field">
         <span>回测关键词</span>
         <input
           disabled={isRunning}
@@ -217,70 +217,77 @@ export function BacktestButton() {
           value={keywordText}
         />
       </label>
-      <button className="ghost-button" disabled={isRunning || !keywordText.trim()} onClick={runBacktest}>
+      <button
+        className="ds-secondary-btn"
+        disabled={isRunning || !keywordText.trim()}
+        onClick={runBacktest}
+        type="button"
+      >
         {isRunning ? "正在回测连接..." : `回测 ${keywordText || "关键词"}`}
       </button>
-      {error ? <p className="warning">{error}</p> : null}
+      {error ? <p className="ds-warning">{error}</p> : null}
       {report ? (
-        <div className="backtest-report">
-          <div className="backtest-summary">
-            <div className="backtest-stat">
+        <div className="ds-backtest-report">
+          <div className="ds-backtest-summary">
+            <div className="ds-backtest-stat">
               <strong>
                 {report.summary.connectedSources}/{report.summary.sources}
               </strong>
               <span>sources connected</span>
             </div>
-            <div className="backtest-stat">
+            <div className="ds-backtest-stat">
               <strong>{report.summary.totalItems}</strong>
               <span>items analyzed</span>
             </div>
-            <div className="backtest-stat">
+            <div className="ds-backtest-stat">
               <strong>{report.summary.topScore}%</strong>
               <span>top score</span>
             </div>
           </div>
-          <p>
+          <p className="ds-empty">
             mode: {report.connectorMode} / enrichment: {report.enrichmentMode}
           </p>
           {report.sources.map((source) => (
-            <section className="backtest-source" key={source.source}>
-              <p>
+            <section className="ds-backtest-source" key={source.source}>
+              <p className="ds-empty">
                 {source.ok ? "OK" : "FAIL"} {source.source} ({source.mode}) · {source.itemCount} items ·{" "}
                 {source.durationMs}ms {source.error ? `· ${source.error}` : ""}
               </p>
-              <div className="backtest-posts">
+              <div className="ds-backtest-posts">
                 {source.analyzed.length ? (
                   source.analyzed.map((item) => {
                     const sopilotPayload = getSopilotPayload(item.rawItem.payload);
 
                     return (
                       <article
-                        className={`backtest-post ${sopilotPayload ? "twitter-hot-post" : ""}`}
+                        className={`ds-backtest-post${sopilotPayload ? " is-twitter-hot" : ""}`}
                         key={item.rawItem.sourceUrl}
                       >
-                        <div className="post-topline">
+                        <div className="ds-post-topline">
                           <span>{sopilotPayload ? "X HOT TWEET" : item.rawItem.source}</span>
                           <span>
                             score {item.opportunity.score}% / confidence {item.opportunity.confidence}%
                           </span>
                         </div>
-                        <div className="post-main">
-                          <div className="post-content">
+                        <div className="ds-post-main">
+                          <div className="ds-post-content">
                             <h4>
                               <a href={item.rawItem.sourceUrl} rel="noreferrer" target="_blank">
-                                {sopilotPayload ? item.rawItem.author ?? "unknown author" : item.rawItem.title}
+                                {sopilotPayload ? (item.rawItem.author ?? "unknown author") : item.rawItem.title}
                               </a>
-                              <time dateTime={item.rawItem.publishedAt}>{formatRelativeDate(item.rawItem.publishedAt)}发布</time>
+                              <time dateTime={item.rawItem.publishedAt}>
+                                {formatRelativeDate(item.rawItem.publishedAt)}发布
+                              </time>
                             </h4>
                             <p>{compactBody(item.rawItem.body) || item.enrichment.evidenceSummary}</p>
-                            <div className="post-meta">
+                            <div className="ds-post-meta">
                               <span>{metricLine(item.rawItem.metrics)}</span>
                               <span>数据更新于 {formatRelativeDate(item.rawItem.publishedAt)}</span>
                             </div>
-                            <p className="post-action">{item.opportunity.recommendedAct}</p>
+                            <p className="ds-post-action">{item.opportunity.recommendedAct}</p>
                           </div>
                           {sopilotPayload ? (
-                            <aside className="tweet-signal-panel">
+                            <aside className="ds-tweet-signal-panel">
                               <div>
                                 <span>起爆概率</span>
                                 <strong>{sopilotPayload.viralProbability ?? item.opportunity.score}%</strong>
@@ -293,11 +300,13 @@ export function BacktestButton() {
                               <a href={item.rawItem.sourceUrl} rel="noreferrer" target="_blank">
                                 查看原贴
                               </a>
-                              <small>评论预计可获得 {formatCompactNumber(sopilotPayload.predictedCommentViews)} 次曝光</small>
+                              <small>
+                                评论预计可获得 {formatCompactNumber(sopilotPayload.predictedCommentViews)} 次曝光
+                              </small>
                             </aside>
                           ) : null}
                         </div>
-                        <div className="ai-summary">
+                        <div className="ds-ai-summary">
                           <span>AI 总结</span>
                           <strong>{item.enrichment.evidenceSummary}</strong>
                         </div>
@@ -305,7 +314,7 @@ export function BacktestButton() {
                     );
                   })
                 ) : (
-                  <p className="empty-source">这次回测没有从 {source.source} 抓到帖子。</p>
+                  <p className="ds-empty">这次回测没有从 {source.source} 抓到帖子。</p>
                 )}
               </div>
             </section>
