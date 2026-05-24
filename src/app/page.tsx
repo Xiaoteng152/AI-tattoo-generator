@@ -2,6 +2,7 @@ import Link from "next/link";
 import { canReachDatabase, getDatabaseUnavailableMessage } from "@/lib/db-health";
 import { prisma } from "@/lib/prisma";
 import { ensureSeedWorkflowConfig } from "@/modules/workflow/seed-config";
+import { AuthControls } from "./components/AuthControls";
 import { BacktestButton } from "./components/BacktestButton";
 import { RunWorkflowButton } from "./components/RunWorkflowButton";
 
@@ -129,12 +130,15 @@ export default async function Home() {
             <span aria-hidden className="ds-logo-dot" />
             Automnic TT
           </Link>
-          <nav aria-label="Primary" className="ds-nav">
-            <span className="is-active">Dashboard</span>
-            <Link href="/deepsearch">DeepSearch</Link>
-            <span>Assets</span>
-            <span>Local MVP</span>
-          </nav>
+          <div className="ds-top-end">
+            <nav aria-label="Primary" className="ds-nav">
+              <span className="is-active">Dashboard</span>
+              <Link href="/deepsearch">DeepSearch</Link>
+              <span>Assets</span>
+              <span>Local MVP</span>
+            </nav>
+            <AuthControls callbackUrl="/deepsearch" />
+          </div>
         </header>
 
         <div className="ds-body">

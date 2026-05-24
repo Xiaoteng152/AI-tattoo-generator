@@ -100,6 +100,107 @@ textarea {
   color: #141414;
 }
 
+.ds-top-end {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ds-auth {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ds-auth-user {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #827a70;
+  font-size: 12px;
+}
+
+.ds-auth-btn {
+  display: inline-grid;
+  place-items: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid #e4ddd2;
+  border-radius: 999px;
+  color: #141414;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.ds-auth-btn--google {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+}
+
+.ds-auth-btn--block {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.ds-auth-btn--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+a.ds-auth-btn {
+  text-decoration: none;
+}
+
+.ds-auth-config-notice {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #eadfce;
+  border-radius: 12px;
+  background: #fff8ef;
+  color: #5f564c;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ds-auth-config-title {
+  margin: 0;
+  color: #141414;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ds-auth-config-lead,
+.ds-auth-config-network {
+  margin: 0;
+}
+
+.ds-auth-config-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.ds-auth-config-notice code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(20, 20, 20, 0.06);
+  font-size: 11px;
+}
+
+.ds-login-panel {
+  display: grid;
+  gap: 14px;
+  max-width: 420px;
+}
+
 .ds-body {
   padding: 24px;
 }

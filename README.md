@@ -24,6 +24,50 @@ npm run dev
 
 Open `http://localhost:3000`, then click `Run MVP workflow`.
 
+## Google Sign-In
+
+DeepSearch (`/deepsearch`) and `POST /api/deepsearch` require Google OAuth. The dashboard home page stays public; use the top-bar **Sign in with Google** button (redirects to `/api/auth/signin/google`).
+
+### Google Cloud Console
+
+1. Open [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials).
+2. Configure the [OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent) (External is fine for local dev; add your Google account as a test user).
+3. Create **OAuth 2.0 Client ID** → Application type: **Web application**.
+4. Under **Authorized redirect URIs**, add exactly:
+   `http://localhost:3000/api/auth/callback/google`
+5. Copy **Client ID** and **Client secret** into `.env.local` (see below).
+
+### `.env.local`
+
+Auth.js v5 official variable names:
+
+```bash
+AUTH_SECRET="$(openssl rand -base64 32)"
+AUTH_GOOGLE_ID="1234567890-abcdef.apps.googleusercontent.com"
+AUTH_GOOGLE_SECRET="GOCSPX-xxxxxxxx"
+AUTH_URL="http://localhost:3000"
+```
+
+Legacy names `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are also supported.
+
+Restart `npm run dev` after editing env. If credentials are missing, `/login` shows a Chinese setup checklist instead of a `Configuration` 500.
+
+### Verify
+
+```bash
+# Providers list should include google when configured
+curl -s http://localhost:3000/api/auth/providers | jq .
+
+# Browser: open login, click Sign in with Google
+open http://localhost:3000/login
+```
+
+### Network note
+
+Auth.js fetches Google OpenID metadata from `https://accounts.google.com/.well-known/openid-configuration` during sign-in. If logs show `TypeError: fetch failed` at `getAuthorizationUrl` **after** credentials are set, your dev machine may not reach Google (firewall, corporate proxy, or region restrictions). Use VPN/proxy for local OAuth, or test from a network that can access `accounts.google.com`.
+
+Session uses Auth.js JWT strategy (no Prisma User table yet). Server routes can call `auth()` from `@/auth`.
+
 `Run MVP workflow` requires PostgreSQL because it writes to Prisma tables. `回测 API 连接` does not require PostgreSQL and can be used first to validate Reddit/Etsy/AI connectivity.
 
 ## Real API Setup

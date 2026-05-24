@@ -3,6 +3,7 @@
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { auth } from "@/auth";
 import { runDeepSearchAgent } from "@/modules/deepsearch/runner";
 
 export const runtime = "nodejs";
@@ -45,8 +46,21 @@ const deepSearchInputSchema = z.object({
   lookbackDays: z.number().int().min(1).max(365).optional()
 });
 
+async function requireSession() {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+}
+
 /** 开发/冒烟：固定 AI tattoo 示例问题 */
 export async function GET() {
+  const unauthorized = await requireSession();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const result = await runDeepSearchAgent({
     query: "Find growth opportunities for AI tattoo generator around fine line tattoo ideas",
     limitPerSource: 2,
@@ -57,6 +71,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireSession();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const body = await request.json().catch(() => ({}));
   const parsed = deepSearchInputSchema.safeParse(body);
 
