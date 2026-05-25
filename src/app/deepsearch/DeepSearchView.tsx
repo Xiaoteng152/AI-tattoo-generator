@@ -4,7 +4,12 @@
  * DeepSearch 运营页：Editorial Command Center 布局，保留完整 pipeline 数据绑定。
  */
 import Link from "next/link";
-import { type ReactNode, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { SiteNav } from "../components/SiteNav";
+import {
+  DEFAULT_DEEPSEARCH_QUERY,
+  parseKeywordsFromSearchParams
+} from "./url";
 
 type VerticalId =
   | "ai_tattoo_generator"
@@ -164,8 +169,7 @@ const priorityLabels: Record<OpportunityCard["priority"], string> = {
   low: "low"
 };
 
-const defaultQuery =
-  "Find growth opportunities for AI tattoo generator around fine line tattoo ideas";
+const defaultQuery = DEFAULT_DEEPSEARCH_QUERY;
 
 const navItems = [
   { id: "ds-query", label: "Query" },
@@ -209,7 +213,7 @@ function readUrlDefaults(): {
         ? "auto"
         : "auto",
     depth: isDepth(depthParam) ? depthParam : "standard",
-    keywords: params.get("keywords")?.trim() ?? ""
+    keywords: parseKeywordsFromSearchParams(params)
   };
 }
 
@@ -365,11 +369,7 @@ function buildReportBrief(result: DeepSearchResult): string {
   return lines.join("\n");
 }
 
-type DeepSearchViewProps = {
-  authControls: ReactNode;
-};
-
-export function DeepSearchView({ authControls }: DeepSearchViewProps) {
+export function DeepSearchView() {
   const [urlDefaults] = useState(readUrlDefaults);
   const [query, setQuery] = useState(urlDefaults.query);
   const [vertical, setVertical] = useState<VerticalId | "auto">(urlDefaults.vertical);
@@ -440,27 +440,30 @@ export function DeepSearchView({ authControls }: DeepSearchViewProps) {
         <header className="ds-top">
           <Link className="ds-logo" href="/">
             <span aria-hidden className="ds-logo-dot" />
-            DeepSearch
+            Automnic TT
           </Link>
           <div className="ds-top-end">
-            <nav aria-label="DeepSearch sections" className="ds-nav">
-              {navItems.map((item) => (
-                <a
-                  key={item.id}
-                  className={activeNav === item.id ? "is-active" : undefined}
-                  href={`#${item.id}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    handleNavClick(item.id);
-                  }}
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-            {authControls}
+            <SiteNav active="deepsearch" />
           </div>
         </header>
+
+        <div className="ds-subtop">
+          <nav aria-label="DeepSearch sections" className="ds-nav">
+            {navItems.map((item) => (
+              <a
+                key={item.id}
+                className={activeNav === item.id ? "is-active" : undefined}
+                href={`#${item.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleNavClick(item.id);
+                }}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        </div>
 
         <div className="ds-body">
           <div className="ds-deep-grid">

@@ -16,11 +16,13 @@ export function scoreOpportunity(item: NormalizedRecord, enrichment: EnrichmentR
   const type = hasCommercialSignal ? "product-experiment" : "seo-brief";
   const score = Math.min(100, Math.round(enrichment.opportunityScore * 0.75 + item.engagementScore / 20));
   const confidence = Math.min(95, 55 + enrichment.painPoints.length * 10 + (hasCommercialSignal ? 15 : 5));
-  const keyword = enrichment.keywords[0] ?? item.tags.find((tag) => !tag.startsWith("real-") && !tag.startsWith("r/")) ?? "growth opportunity";
-  const isTattooContext = `${keyword} ${item.title} ${item.tags.join(" ")}`.toLowerCase().includes("tattoo");
+  const isTattooContext = /tattoo|纹身/i.test(`${item.title} ${item.body}`);
+  const isCryptoContext = /比特币|以太坊|bitcoin|ethereum|crypto|加密|区块链|币圈|web3|btc|eth/i.test(
+    `${item.title} ${item.body}`
+  );
 
   return {
-    title: `${keyword}: ${item.title}`,
+    title: item.title,
     type,
     score,
     confidence,
@@ -28,8 +30,10 @@ export function scoreOpportunity(item: NormalizedRecord, enrichment: EnrichmentR
     sourceUrls: [item.sourceUrl],
     recommendedAct: hasCommercialSignal
       ? "Validate a paid design-brief bundle and compare Etsy positioning."
-      : isTattooContext
-        ? "Publish an SEO brief that answers the user's pre-booking concern with examples and a checklist."
-        : "Publish an evidence-backed content brief that explains the signal, audience intent, and next growth action."
+      : isCryptoContext
+        ? "Publish a trading-signal brief that explains the market narrative, risk framing, and a concrete next action."
+        : isTattooContext
+          ? "Publish an SEO brief that answers the tattoo-related concern in the X post with examples and a checklist."
+          : "Publish an evidence-backed content brief that explains the signal, audience intent, and next growth action."
   };
 }

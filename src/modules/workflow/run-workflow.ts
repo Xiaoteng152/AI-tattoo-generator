@@ -1,4 +1,4 @@
-import { getConnectors } from "@/modules/connectors";
+import { getConnectorsForWorkflowSources } from "@/modules/connectors";
 import { enrichNormalizedItem } from "@/modules/enrichment/enricher";
 import { normalizeRawItem } from "@/modules/normalization/normalize";
 import { generateSeoBriefMarkdown } from "@/modules/output/markdown";
@@ -6,6 +6,11 @@ import { scoreOpportunity } from "@/modules/scoring/opportunity-scorer";
 import { prisma } from "@/lib/prisma";
 import { ensureSeedWorkflowConfig } from "./seed-config";
 import type { Prisma } from "@prisma/client";
+
+function truncateTitle(title: string, maxLength = 96) {
+  const compact = title.replace(/\s+/g, " ").trim();
+  return compact.length <= maxLength ? compact : `${compact.slice(0, maxLength - 1).trimEnd()}…`;
+}
 
 async function completeStep(id: string, metadata?: Prisma.InputJsonObject) {
   return prisma.runStep.update({
@@ -33,9 +38,25 @@ async function failRun(runId: string, error: unknown) {
   return message;
 }
 
-export async function runMvpWorkflow() {
+export type RunMvpWorkflowInput = {
+  keywords?: string[];
+  productDirection?: string;
+};
+
+export async function runMvpWorkflow(input: RunMvpWorkflowInput = {}) {
   const config = await ensureSeedWorkflowConfig();
-  const enabledSources = new Set(config.sources.filter((source) => source.enabled).map((source) => source.source));
+  const connectors = getConnectorsForWorkflowSources(config.sources, { allowMockFallback: false });
+  // 运行时 POST 参数覆盖 DB 里的 seed config，Dashboard 可直接改关键词/产品方向。
+  const keywords = input.keywords?.length ? input.keywords : config.keywords;
+  const productDirection = input.productDirection?.trim() || config.productDirection;
+  const filters = (config.filters ?? {}) as {
+    limitPerSource?: number;
+    maxPages?: number;
+    lookbackDays?: number;
+  };
+  const limitPerSource = filters.limitPerSource ?? Number(process.env.WORKFLOW_X_LIMIT_PER_SOURCE ?? 40);
+  const maxPages = filters.maxPages ?? Number(process.env.WORKFLOW_X_MAX_PAGES ?? 5);
+  const lookbackDays = filters.lookbackDays ?? 30;
 
   const run = await prisma.workflowRun.create({
     data: {
@@ -55,18 +76,64 @@ export async function runMvpWorkflow() {
       }
     });
 
-    const extracted = (
-      await Promise.all(
-        getConnectors({ allowMockFallback: true })
-          .filter((connector) => enabledSources.has(connector.source))
-          .map((connector) =>
-            connector.extract({
-              keywords: config.keywords,
-              productDirection: config.productDirection
-            })
-          )
-      )
-    ).flat();
+    const extractionResults = await Promise.all(
+      connectors.map(async (connector) => {
+        try {
+          const items = await connector.extract({
+            keywords,
+            productDirection,
+            limitPerSource,
+            maxPages,
+            lookbackDays
+          });
+
+          return { connector, items, error: null as string | null };
+        } catch (error) {
+          // 单源失败不阻断整次 run；全部源失败时在下方统一抛错。
+          console.error("[workflow] connector extract failed", {
+            source: connector.source,
+            errorType: error instanceof Error ? error.name : typeof error,
+            errorMessage: error instanceof Error ? error.message : String(error),
+            causeType:
+              error instanceof Error && error.cause instanceof Error
+                ? error.cause.name
+                : error instanceof Error && error.cause
+                  ? typeof error.cause
+                  : null,
+            causeCode:
+              error instanceof Error &&
+              error.cause &&
+              typeof error.cause === "object" &&
+              "code" in error.cause &&
+              typeof error.cause.code === "string"
+                ? error.cause.code
+                : null
+          });
+
+          return {
+            connector,
+            items: [],
+            error: error instanceof Error ? error.message : "Unknown connector error"
+          };
+        }
+      })
+    );
+
+    const extracted = extractionResults.flatMap((result) => result.items);
+    const sourceErrors = extractionResults
+      .filter((result) => result.error)
+      .map((result) => ({
+        source: result.connector.source,
+        error: result.error
+      }));
+
+    if (!extracted.length) {
+      throw new Error(
+        sourceErrors.length
+          ? sourceErrors.map((entry) => `${entry.source}: ${entry.error}`).join("; ")
+          : "No items extracted from configured sources"
+      );
+    }
 
     const rawItems = await Promise.all(
       extracted.map((item) =>
@@ -98,7 +165,16 @@ export async function runMvpWorkflow() {
       )
     );
 
-    await completeStep(extractionStep.id, { rawItems: rawItems.length });
+    await completeStep(extractionStep.id, {
+      rawItems: rawItems.length,
+      sourceResults: extractionResults.map((result) => ({
+        source: result.connector.source,
+        mode: result.connector.mode,
+        ok: !result.error,
+        itemCount: result.items.length,
+        error: result.error ?? undefined
+      }))
+    });
 
     const normalizationStep = await prisma.runStep.create({
       data: {
@@ -168,8 +244,13 @@ export async function runMvpWorkflow() {
           workflowRunId: run.id,
           opportunityId: opportunity.id,
           type: "seo-brief",
-          title: `SEO brief: ${opportunity.title}`,
-          content: generateSeoBriefMarkdown(opportunity)
+          title: `SEO brief: ${truncateTitle(opportunity.title)}`,
+          content: generateSeoBriefMarkdown(opportunity, {
+            // 必须用运行时 productDirection，不能用 DB seed config 里的旧垂类名。
+            productDirection,
+            keywords: savedEnrichment.keywords,
+            painPoints: savedEnrichment.painPoints
+          })
         }
       });
 
@@ -187,6 +268,8 @@ export async function runMvpWorkflow() {
         status: "COMPLETED",
         completedAt: new Date(),
         summary: {
+          productDirection,
+          keywords,
           rawItems: rawItems.length,
           normalizedItems: normalizedItems.length,
           opportunities: opportunities.length,

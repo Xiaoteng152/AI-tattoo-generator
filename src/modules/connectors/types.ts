@@ -5,6 +5,7 @@ export type ConnectorInput = {
   productDirection: string;
   limitPerSource?: number;
   lookbackDays?: number;
+  maxPages?: number;
 };
 
 export type ExtractedRawItem = {
