@@ -13,6 +13,7 @@ build/
 # local env
 .env
 .env*.local
+.local.env
 vercel-backend.env
 
 # logs

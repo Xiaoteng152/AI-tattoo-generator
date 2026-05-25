@@ -15,6 +15,16 @@ const MVP_WORKFLOW_SOURCES = [
   }
 ] as const;
 
+function buildDefaultWorkflowFilters() {
+  return {
+    minEngagement: 20,
+    // 与 X 搜索一致：含中文关键词时不应强制 lang:en，因此 seed config 统一为 any。
+    language: "any",
+    limitPerSource: Number(process.env.WORKFLOW_X_LIMIT_PER_SOURCE ?? 40),
+    maxPages: Number(process.env.WORKFLOW_X_MAX_PAGES ?? 5)
+  };
+}
+
 async function dedupeWorkflowSources(workflowConfigId: string) {
   const existing = await prisma.workflowSource.findMany({
     where: { workflowConfigId },
@@ -113,12 +123,7 @@ export async function ensureSeedWorkflowConfig() {
     await prisma.workflowConfig.update({
       where: { id: existing.id },
       data: {
-        filters: {
-          minEngagement: 20,
-          language: "en",
-          limitPerSource: Number(process.env.WORKFLOW_X_LIMIT_PER_SOURCE ?? 40),
-          maxPages: Number(process.env.WORKFLOW_X_MAX_PAGES ?? 5)
-        }
+        filters: buildDefaultWorkflowFilters()
       }
     });
 
@@ -133,12 +138,7 @@ export async function ensureSeedWorkflowConfig() {
       name: WORKFLOW_CONFIG_NAME,
       productDirection: "Crypto trading signals",
       keywords: ["比特币", "以太坊", "bitcoin", "ethereum", "BTC", "ETH"],
-      filters: {
-        minEngagement: 20,
-        language: "any",
-        limitPerSource: Number(process.env.WORKFLOW_X_LIMIT_PER_SOURCE ?? 40),
-        maxPages: Number(process.env.WORKFLOW_X_MAX_PAGES ?? 5)
-      },
+      filters: buildDefaultWorkflowFilters(),
       promptVersion: "mvp-v0",
       outputTemplate: "seo-brief-markdown",
       reviewThreshold: 70,
