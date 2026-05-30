@@ -1,19 +1,63 @@
-# Growth Automation Harness MVP
+# Growth Automation Harness
 
-Local MVP for the AI tattoo generator demo vertical.
+面向海外 C 端产品增长的自动化平台 MVP。当前演示垂类固定为 **AI tattoo generator**（AI 纹身生成器），用一条可复现的增长工作流，把 Reddit、X/Twitter、Etsy 等渠道的市场信号，转成运营可直接使用的 SEO brief 与机会清单。
 
-## What It Does
+更完整的产品链路与模块说明见 [docs/product-flow.md](docs/product-flow.md)；Agent 与领域词汇见 [CONTEXT.md](CONTEXT.md)、[AGENTS.md](AGENTS.md)。
 
-- Seeds a workflow config for `AI tattoo generator`.
-- Extracts Reddit evidence through public JSON search.
-- Extracts X/Twitter evidence through SoPilot hot tweets RSS by default, or X API v2 Recent Search when configured.
-- Extracts Etsy evidence through Etsy Open API v3 when `ETSY_API_KEY` is configured.
-- Saves Raw Items and Normalized Items.
-- Runs OpenAI-compatible enrichment when `OPENAI_API_KEY` exists, with rule-based fallback.
-- Generates Markdown SEO briefs as Output Assets.
-- Shows the latest run, opportunity stack, generated asset, and connector backtest in the Next.js dashboard.
+---
 
-## Run Locally
+## 项目定位
+
+这不是单纯的爬虫或 Prompt 工具，而是一个 **Growth Automation Harness**：帮助增长团队从「手动刷热点、拼表格」升级为「配置一次、反复执行」的标准化流程。
+
+平台要解决的核心问题：
+
+1. **发现**：从社区讨论、电商 listing、社媒热点里找到真实痛点与商业信号。
+2. **理解**：用 AI（或规则回退）把非结构化内容变成痛点、意图、趋势类型、关键词与内容角度。
+3. **排序**：按互动与证据强度给机会打分，让运营先处理高价值项。
+4. **产出**：生成 Markdown SEO brief 等可审核的增长资产。
+5. **深挖**：对单个机会启动 DeepSearch，做多步检索、证据聚合与研究摘要（需 Google 登录）。
+6. **验证**：在不写库的情况下回测 Connector 与增强链路是否可用。
+
+第一个作品集演示选择 **AI tattoo generator**，是因为该垂类能自然串联：Reddit 用户痛点、Etsy 商品需求、视觉/内容趋势、SEO 页面机会，以及后续的 KOC/KOL 触达方向。
+
+---
+
+## 当前 MVP 能力
+
+| 能力 | 说明 |
+| --- | --- |
+| Workflow Config | 种子配置固定产品方向与关键词（`AI tattoo generator`） |
+| Reddit Connector | 通过公开 JSON 搜索提取讨论与痛点证据 |
+| X/Twitter Connector | 默认走 SoPilot 热推 RSS；可切换 X API v2 Recent Search |
+| Etsy Connector | 配置 `ETSY_API_KEY` 后走 Etsy Open API v3 |
+| 原始与归一化 | 写入 Raw Items、Normalized Items（标题、正文、标签、互动分等） |
+| Enrichment | 有 `OPENAI_API_KEY` 时走 OpenAI 兼容接口；否则规则回退 |
+| Opportunity 评分 | 基于证据与互动生成可排序的机会栈 |
+| Output Asset | 生成 Markdown SEO brief |
+| Dashboard | Next.js 首页展示最近运行、机会栈、资产与回测入口 |
+| Backtest | 不依赖 PostgreSQL，可单独验证数据源与分析是否连通 |
+| DeepSearch | `/deepsearch` 围绕单个机会继续规划问题、拉证据、出研究报告（需 OAuth） |
+
+连接器模式（`CONNECTORS_MODE`）：
+
+- `mock`：仅内置演示数据。
+- `hybrid`（推荐）：真实 Reddit；X 默认 SoPilot；Etsy 有 key 才走真实 API。
+- `real`：全部走真实源；缺 key 会快速失败。
+
+---
+
+## 技术栈
+
+- **应用**：Next.js 16、React 19、Tailwind CSS 4
+- **数据**：PostgreSQL + Prisma
+- **队列**（可选）：BullMQ + Redis（worker 脚本）
+- **认证**：Auth.js v5（Google OAuth，JWT 会话）
+- **AI**：OpenAI 兼容 HTTP API（可配置 `OPENAI_BASE_URL` / `OPENAI_MODEL`）
+
+---
+
+## 本地运行
 
 ```bash
 cp .env.example .env
@@ -22,24 +66,31 @@ npm run db:migrate
 npm run dev
 ```
 
-Open `http://localhost:3000`, then click `Run MVP workflow`.
+浏览器打开 `http://localhost:3000`，点击 **Run MVP workflow** 触发完整工作流（需 PostgreSQL 与迁移成功）。
 
-## Google Sign-In
+首次建议先点 **回测 API 连接**，无需数据库即可检查 Reddit / Etsy / AI 等链路。
 
-DeepSearch (`/deepsearch`) and `POST /api/deepsearch` require Google OAuth. The dashboard home page stays public; use the top-bar **Sign in with Google** button (redirects to `/api/auth/signin/google`).
+安装 Git 提交校验（标题单行不超过 15 字）：
+
+```bash
+npm run hooks:install
+```
+
+---
+
+## Google 登录（DeepSearch）
+
+DeepSearch（`/deepsearch`）与 `POST /api/deepsearch` 需要 Google OAuth。首页 Dashboard 仍公开；顶栏 **Sign in with Google** 跳转 `/api/auth/signin/google`。
 
 ### Google Cloud Console
 
-1. Open [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials).
-2. Configure the [OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent) (External is fine for local dev; add your Google account as a test user).
-3. Create **OAuth 2.0 Client ID** → Application type: **Web application**.
-4. Under **Authorized redirect URIs**, add exactly:
-   `http://localhost:3000/api/auth/callback/google`
-5. Copy **Client ID** and **Client secret** into `.env.local` (see below).
+1. 打开 [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)。
+2. 配置 [OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent)（本地开发用 External 即可，把自己的 Google 账号加为测试用户）。
+3. 创建 **OAuth 2.0 Client ID** → 类型：**Web application**。
+4. **Authorized redirect URIs** 填写：`http://localhost:3000/api/auth/callback/google`
+5. 将 Client ID / Secret 写入 `.env.local`（见下）。
 
-### `.env.local`
-
-Auth.js v5 official variable names:
+### `.env.local`（Auth.js v5）
 
 ```bash
 AUTH_SECRET="$(openssl rand -base64 32)"
@@ -48,29 +99,22 @@ AUTH_GOOGLE_SECRET="GOCSPX-xxxxxxxx"
 AUTH_URL="http://localhost:3000"
 ```
 
-Legacy names `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are also supported.
+也支持旧变量名 `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`。修改 env 后需重启 `npm run dev`。凭证缺失时 `/login` 会显示中文配置清单，而不是 Configuration 500。
 
-Restart `npm run dev` after editing env. If credentials are missing, `/login` shows a Chinese setup checklist instead of a `Configuration` 500.
-
-### Verify
+### 验证
 
 ```bash
-# Providers list should include google when configured
 curl -s http://localhost:3000/api/auth/providers | jq .
-
-# Browser: open login, click Sign in with Google
 open http://localhost:3000/login
 ```
 
-### Network note
+**网络说明**：登录时会请求 `accounts.google.com` 的 OpenID 配置。若已配置凭证仍出现 `TypeError: fetch failed`，多为本机无法访问 Google，需 VPN/代理或换网络。
 
-Auth.js fetches Google OpenID metadata from `https://accounts.google.com/.well-known/openid-configuration` during sign-in. If logs show `TypeError: fetch failed` at `getAuthorizationUrl` **after** credentials are set, your dev machine may not reach Google (firewall, corporate proxy, or region restrictions). Use VPN/proxy for local OAuth, or test from a network that can access `accounts.google.com`.
+会话为 JWT 策略（暂无 Prisma User 表）。服务端可用 `auth()`（`@/auth`）。
 
-Session uses Auth.js JWT strategy (no Prisma User table yet). Server routes can call `auth()` from `@/auth`.
+---
 
-`Run MVP workflow` requires PostgreSQL because it writes to Prisma tables. `回测 API 连接` does not require PostgreSQL and can be used first to validate Reddit/Etsy/AI connectivity.
-
-## Real API Setup
+## 真实 API 配置示例
 
 ```bash
 CONNECTORS_MODE="hybrid"
@@ -83,15 +127,9 @@ OPENAI_BASE_URL="https://api.openai.com/v1"
 OPENAI_MODEL="gpt-4o-mini"
 ```
 
-Connector modes:
+X/Twitter 默认用 SoPilot RSS，再按关键词过滤。若改用官方 API：设 `TWITTER_SOURCE="x-api"` 并配置 `X_BEARER_TOKEN`（受套餐、限流与 recent-search 时间窗约束）。
 
-- `mock`: only bundled demo data.
-- `hybrid`: real Reddit, SoPilot-backed X/Twitter by default, and real Etsy only when `ETSY_API_KEY` exists.
-- `real`: real Reddit, real X/Twitter, and real Etsy; missing keys fail fast.
-
-X/Twitter defaults to SoPilot's public RSS feed at `https://sopilot.net/rss/hottweets`, then filters the returned hot tweets by keyword inside the backtest workflow. To use the official X API instead, set `TWITTER_SOURCE="x-api"` and configure `X_BEARER_TOKEN`; that path uses `GET https://api.x.com/2/tweets/search/recent` and is limited by the X API plan, rate limits, and recent-search lookback window.
-
-Backtest endpoint:
+回测示例：
 
 ```bash
 curl -X POST http://localhost:3000/api/backtests \
@@ -99,11 +137,23 @@ curl -X POST http://localhost:3000/api/backtests \
   -d '{"limitPerSource":4,"lookbackDays":30}'
 ```
 
-## Useful Commands
+---
+
+## 常用命令
 
 ```bash
 npm run db:generate
 npm run typecheck
 npm run lint
 npm run build
+npm run test:deepsearch
 ```
+
+---
+
+## 相关文档
+
+- [产品链路图](docs/product-flow.md)
+- [Agent 指南与 Git 规范](AGENTS.md)
+- [领域上下文](CONTEXT.md)
+- [版本任务路线图](task.md)

@@ -1,0 +1,28 @@
+#!/bin/sh
+# Enforce single-line commit subject <= 15 characters (see AGENTS.md).
+
+commit_file=$1
+subject=""
+while IFS= read -r line || [ -n "$line" ]; do
+  case $line in
+    ""|"#"*) continue ;;
+    *) subject=$line; break ;;
+  esac
+done < "$commit_file"
+
+if [ -z "$subject" ]; then
+  echo "commit-msg: 提交标题不能为空。" >&2
+  exit 1
+fi
+
+# Count Unicode characters (not bytes).
+char_count=$(printf '%s' "$subject" | wc -m | tr -d ' ')
+
+if [ "$char_count" -gt 15 ]; then
+  echo "commit-msg: 标题须单行且不超过 15 个字（当前 ${char_count} 字）。" >&2
+  echo "commit-msg: 当前标题: $subject" >&2
+  echo "commit-msg: 格式示例: feat: 修复登录" >&2
+  exit 1
+fi
+
+exit 0

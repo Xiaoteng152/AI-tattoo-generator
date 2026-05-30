@@ -17,12 +17,13 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "hooks:install": "cp .githooks/commit-msg .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Growth Automation Harness MVP：以 AI tattoo generator 为演示垂类，聚合 Reddit/X/Etsy 信号并生成 SEO brief 与 DeepSearch 研究报告。",
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "bullmq": "^5.76.8",
