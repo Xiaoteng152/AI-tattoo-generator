@@ -190,6 +190,9 @@ model OutputAsset {
 model DeepSearchRun {
   id                  String              @id @default(cuid())
   status              DeepSearchRunStatus @default(PENDING)
+  query               String              @default("")
+  vertical            String              @default("ai_tattoo_generator")
+  depth               String              @default("standard")
   goal                String
   audience            String
   seedKeywords        String[]            @map("seed_keywords")
@@ -197,6 +200,8 @@ model DeepSearchRun {
   questionsCompleted  Int                 @default(0) @map("questions_completed")
   questionsTotal      Int                 @default(0) @map("questions_total")
   rawItemCount        Int                 @default(0) @map("raw_item_count")
+  evidenceCount       Int                 @default(0) @map("evidence_count")
+  findingCount        Int                 @default(0) @map("finding_count")
   evidenceBundleCount Int                 @default(0) @map("evidence_bundle_count")
   opportunityCount    Int                 @default(0) @map("opportunity_count")
   summary             Json?
@@ -215,10 +220,14 @@ model DeepSearchRun {
 model DeepSearchPlan {
   id              String               @id @default(cuid())
   deepSearchRunId String               @unique @map("deepsearch_run_id")
+  vertical        String               @default("ai_tattoo_generator")
+  depth           String               @default("standard")
   goal            String
   audience        String
   seedKeywords    String[]             @map("seed_keywords")
   expectedOutputs String[]             @map("expected_outputs")
+  contextBudget   Json                 @default("{}") @map("context_budget")
+  promptVersion   String               @default("deepsearch-v1") @map("prompt_version")
   createdAt       DateTime             @default(now()) @map("created_at")
   deepSearchRun   DeepSearchRun        @relation(fields: [deepSearchRunId], references: [id], onDelete: Cascade)
   questions       DeepSearchQuestion[]
@@ -231,6 +240,7 @@ model DeepSearchQuestion {
   planId       String           @map("plan_id")
   question     String
   intent       String
+  agent        String           @default("reddit_agent")
   sources      String[]
   queries      String[]
   position     Int
@@ -261,9 +271,13 @@ model DeepSearchReport {
   deepSearchRunId       String        @unique @map("deepsearch_run_id")
   title                 String
   summary               String
+  whatIsTrending        String[]      @map("what_is_trending")
+  userPainPoints        String[]      @map("user_pain_points")
   topOpportunities      Json          @map("top_opportunities")
+  recommendedActions    String[]      @map("recommended_actions")
   risks                 String[]
   nextSearchSuggestions String[]      @map("next_search_suggestions")
+  citations             Json          @default("[]")
   createdAt             DateTime      @default(now()) @map("created_at")
   deepSearchRun         DeepSearchRun @relation(fields: [deepSearchRunId], references: [id], onDelete: Cascade)
 

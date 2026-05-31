@@ -3,6 +3,7 @@
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { persistDeepSearchResult } from "@/modules/deepsearch/persistence";
 import { runDeepSearchAgent } from "@/modules/deepsearch/runner";
 
 export const runtime = "nodejs";
@@ -47,13 +48,16 @@ const deepSearchInputSchema = z.object({
 
 /** 开发/冒烟：固定 AI tattoo 示例问题 */
 export async function GET() {
+  const query =
+    "Find growth opportunities for AI tattoo generator around fine line tattoo ideas";
   const result = await runDeepSearchAgent({
-    query: "Find growth opportunities for AI tattoo generator around fine line tattoo ideas",
+    query,
     limitPerSource: 2,
     depth: "standard"
   });
 
-  return NextResponse.json({ result });
+  const runId = await persistDeepSearchResult({ query, result });
+  return NextResponse.json({ runId, result });
 }
 
 export async function POST(request: Request) {
@@ -65,8 +69,13 @@ export async function POST(request: Request) {
   }
 
   const result = await runDeepSearchAgent(parsed.data);
+  const query =
+    parsed.data.query ?? parsed.data.goal ?? result.plan.goal;
+  // 最佳努力持久化：DB 不可用时 runId 为 null，不影响返回报告
+  const runId = await persistDeepSearchResult({ query, result });
+
   return NextResponse.json(
-    { result },
+    { runId, result },
     { status: result.state.status === "failed" ? 500 : 201 }
   );
 }

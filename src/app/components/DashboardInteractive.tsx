@@ -58,7 +58,7 @@ export function DashboardInteractive({
     <>
       <section className="ds-hero-strip">
         <div>
-          <p className="ds-small-label">Crypto trading demo</p>
+          <p className="ds-small-label">Growth workflow demo</p>
           <h1 className="ds-display-title">Evidence-ranked growth opportunities.</h1>
           <p className="ds-lead-copy">
             从 X/Twitter 关键词搜索里保留证据链，归一化后生成机会排序、SEO brief 与可导出资产。
@@ -67,10 +67,10 @@ export function DashboardInteractive({
         <aside className="ds-panel ds-control-panel">
           <p className="ds-small-label">X Workflow</p>
           <strong className="ds-control-title">输入关键词，直接跑搜索</strong>
-          <p className="ds-empty">不再依赖预设 Workflow Config。选预设或自己填关键词，然后运行 X 搜索工作流。</p>
+          <p className="ds-control-note">选预设或输入关键词，系统会抓取热帖、保留证据链，并生成机会排序。</p>
           <WorkflowControl dbError={dbError} disabled={disabled} onRunningChange={setIsGenerating} />
           <HotSearchPanel />
-          <Link className="ds-secondary-link" href={defaultDeepSearchHref}>
+          <Link className="ds-secondary-link ds-secondary-link--strong" href={defaultDeepSearchHref}>
             Continue with DeepSearch
           </Link>
           {latestRunExists ? (
@@ -124,7 +124,7 @@ export function DashboardInteractive({
                   证据 {opportunity.sourceUrls.length} · {opportunity.recommendedAct}
                 </p>
                 <Link
-                  className="ds-text-link"
+                  className="ds-action-link"
                   href={buildDeepSearchHref({
                     query: `Validate: ${opportunity.title}`
                   })}

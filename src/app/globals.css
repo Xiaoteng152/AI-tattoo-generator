@@ -7,6 +7,8 @@
   --ds-muted: #827a70;
   --ds-line: #e8e1d6;
   --ds-panel-border: #e7e0d5;
+  --ds-shadow-card: 0 14px 34px rgba(31, 28, 22, 0.06);
+  --ds-shadow-card-hover: 0 20px 46px rgba(31, 28, 22, 0.11);
 }
 
 * {
@@ -29,6 +31,29 @@ button,
 input,
 textarea {
   font: inherit;
+}
+
+button,
+a,
+select,
+input,
+textarea {
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(17, 17, 17, 0.26);
+  outline-offset: 3px;
 }
 
 
@@ -280,10 +305,10 @@ a.ds-auth-btn {
 .ds-display-title {
   margin: 0;
   max-width: 760px;
-  font-size: clamp(34px, 5vw, 64px);
+  font-size: 60px;
   line-height: 0.94;
   font-weight: 900;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .ds-lead-copy {
@@ -297,6 +322,14 @@ a.ds-auth-btn {
 .ds-control-title {
   font-size: 18px;
   line-height: 1.25;
+}
+
+.ds-control-note {
+  max-width: 32rem;
+  margin: 0;
+  color: #6f665c;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .ds-tag-flow {
@@ -329,11 +362,27 @@ a.ds-auth-btn {
   font-size: 12px;
   font-weight: 850;
   text-decoration: none;
+  box-shadow: 0 8px 22px rgba(31, 28, 22, 0.03);
 }
 
-.ds-secondary-link:hover {
+.ds-secondary-link:hover,
+.ds-secondary-link:focus-visible {
   border-color: #111;
   color: #111;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(31, 28, 22, 0.08);
+}
+
+.ds-secondary-link--strong {
+  border-color: #141414;
+  background: #141414;
+  color: #fff;
+}
+
+.ds-secondary-link--strong:hover,
+.ds-secondary-link--strong:focus-visible {
+  background: #000;
+  color: #fff;
 }
 
 .ds-secondary-btn {
@@ -347,6 +396,14 @@ a.ds-auth-btn {
   font-size: 12px;
   font-weight: 850;
   cursor: pointer;
+  box-shadow: 0 8px 22px rgba(31, 28, 22, 0.03);
+}
+
+.ds-secondary-btn:hover:not(:disabled),
+.ds-secondary-btn:focus-visible:not(:disabled) {
+  border-color: #111;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(31, 28, 22, 0.08);
 }
 
 .ds-secondary-btn:disabled {
@@ -372,20 +429,51 @@ a.ds-auth-btn {
 .ds-section-title {
   margin: 0 0 12px;
   font-size: 20px;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 
 .ds-backtest-section {
   margin: 0 0 24px;
 }
 
-.ds-list-line--rich {
+.ds-list-line.ds-list-line--rich {
   grid-template-columns: 44px minmax(0, 1fr) 70px;
   align-items: start;
+  margin-top: 10px;
+  padding: 16px;
+  border: 1px solid #ece6dc;
+  border-radius: 16px;
+  background: #fffdf9;
+  box-shadow: 0 10px 24px rgba(31, 28, 22, 0.035);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.ds-list-line.ds-list-line--rich:first-of-type {
+  margin-top: 0;
+  padding-top: 16px;
+  border-top: 1px solid #ece6dc;
+}
+
+.ds-list-line.ds-list-line--rich:hover {
+  border-color: #d6cbbc;
+  background: #fff;
+  box-shadow: var(--ds-shadow-card-hover);
+  transform: translateY(-2px);
 }
 
 .ds-list-line--rich .ds-score-pill {
   margin-top: 4px;
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.ds-list-line--rich:hover .ds-score-pill {
+  transform: scale(1.04);
 }
 
 .ds-list-detail {
@@ -405,8 +493,44 @@ a.ds-auth-btn {
   text-underline-offset: 3px;
 }
 
-.ds-text-link:hover {
+.ds-text-link:hover,
+.ds-text-link:focus-visible {
   color: #111;
+}
+
+.ds-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 42px;
+  margin-top: 8px;
+  padding: 0 15px;
+  border: 1px solid #ddd5c8;
+  border-radius: 999px;
+  background: #fff;
+  color: #141414;
+  font-size: 12px;
+  font-weight: 850;
+  text-decoration: none;
+  box-shadow: 0 8px 18px rgba(31, 28, 22, 0.03);
+}
+
+.ds-action-link:hover,
+.ds-action-link:focus-visible {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+  text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(31, 28, 22, 0.1);
+}
+
+.ds-action-link--subtle {
+  min-height: 36px;
+  margin-top: 2px;
+  padding: 0 12px;
+  font-size: 11px;
 }
 
 .ds-backtest-console {
@@ -431,9 +555,12 @@ a.ds-auth-btn {
   cursor: pointer;
 }
 
-.ds-source-tab:hover {
+.ds-source-tab:hover:not(:disabled),
+.ds-source-tab:focus-visible:not(:disabled) {
   border-color: #111;
   color: #111;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(31, 28, 22, 0.08);
 }
 
 .ds-source-tab.is-active {
@@ -501,6 +628,19 @@ a.ds-auth-btn {
   border: 1px solid #ece6dc;
   border-radius: 14px;
   background: #fff;
+  box-shadow: 0 10px 26px rgba(31, 28, 22, 0.035);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.ds-backtest-post:hover {
+  border-color: #d6cbbc;
+  background: #fffdfa;
+  box-shadow: var(--ds-shadow-card-hover);
+  transform: translateY(-2px);
 }
 
 .ds-backtest-post.is-twitter-hot {
@@ -560,8 +700,19 @@ a.ds-auth-btn {
   text-decoration: none;
 }
 
-.ds-backtest-post a:hover {
-  text-decoration: underline;
+.ds-post-title-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  margin: -3px -6px;
+  padding: 3px 6px;
+  border-radius: 8px;
+}
+
+.ds-backtest-post a:hover,
+.ds-backtest-post a:focus-visible {
+  background: rgba(20, 20, 20, 0.055);
+  text-decoration: none;
 }
 
 .ds-backtest-post p {
@@ -580,8 +731,10 @@ a.ds-auth-btn {
 .ds-tweet-signal-panel {
   display: grid;
   gap: 10px;
-  padding-left: 14px;
-  border-left: 1px solid #e8e1d6;
+  padding: 12px;
+  border: 1px solid #e8e1d6;
+  border-radius: 14px;
+  background: #fbfaf7;
 }
 
 .ds-tweet-signal-panel span {
@@ -593,10 +746,16 @@ a.ds-auth-btn {
 }
 
 .ds-tweet-signal-panel strong {
-  font-size: clamp(22px, 3vw, 32px);
+  font-size: 28px;
   font-weight: 900;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   line-height: 1;
+}
+
+.ds-tweet-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .ds-tweet-signal-panel button,
@@ -604,10 +763,12 @@ a.ds-auth-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
+  min-height: 42px;
+  padding: 0 12px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 850;
+  text-decoration: none;
 }
 
 .ds-tweet-signal-panel button {
@@ -618,7 +779,24 @@ a.ds-auth-btn {
 }
 
 .ds-tweet-signal-panel a {
+  border: 1px solid #ddd5c8;
+  background: #fff;
   color: #141414;
+}
+
+.ds-tweet-signal-panel button:hover,
+.ds-tweet-signal-panel button:focus-visible {
+  border-color: #2f4f9e;
+  background: #dfe8ff;
+  transform: translateY(-1px);
+}
+
+.ds-tweet-signal-panel a:hover,
+.ds-tweet-signal-panel a:focus-visible {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+  transform: translateY(-1px);
 }
 
 .ds-tweet-signal-panel small {
@@ -671,11 +849,16 @@ a.ds-auth-btn {
   border-radius: 18px;
   background: #fff;
   padding: 16px;
+  box-shadow: 0 10px 30px rgba(31, 28, 22, 0.035);
 }
 
 .ds-control-panel {
   display: grid;
-  gap: 12px;
+  gap: 14px;
+}
+
+.ds-control-panel .ds-field textarea {
+  min-height: 72px;
 }
 
 @keyframes ds-spin {
@@ -713,8 +896,12 @@ a.ds-auth-btn {
 .ds-hot-search {
   display: grid;
   gap: 10px;
-  padding-top: 4px;
-  border-top: 1px solid #ebe5db;
+  max-height: 340px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #ebe5db;
+  border-radius: 14px;
+  background: #fbfaf7;
 }
 
 .ds-hot-search-head {
@@ -732,13 +919,26 @@ a.ds-auth-btn {
 .ds-hot-search-item {
   display: grid;
   gap: 6px;
-  padding: 10px 0;
-  border-bottom: 1px solid #f0ebe3;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .ds-hot-search-item:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
+  padding-bottom: 10px;
+}
+
+.ds-hot-search-item:hover {
+  border-color: #e7e0d5;
+  background: #fff;
+  box-shadow: 0 12px 26px rgba(31, 28, 22, 0.06);
+  transform: translateY(-1px);
 }
 
 .ds-hot-search-item-head {
@@ -765,10 +965,14 @@ a.ds-auth-btn {
 }
 
 .ds-hot-search-item p {
+  display: -webkit-box;
+  overflow: hidden;
   margin: 0;
   color: #4f4a43;
   font-size: 12px;
   line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .ds-input-stack {
@@ -801,6 +1005,12 @@ a.ds-auth-btn {
   color: #141414;
 }
 
+.ds-field input:hover:not(:disabled),
+.ds-field select:hover:not(:disabled),
+.ds-field textarea:hover:not(:disabled) {
+  border-color: #d3c8b9;
+}
+
 .ds-field textarea {
   min-height: 88px;
   resize: vertical;
@@ -825,6 +1035,14 @@ a.ds-auth-btn {
   font-size: 12px;
   font-weight: 850;
   cursor: pointer;
+  box-shadow: 0 12px 28px rgba(20, 20, 20, 0.13);
+}
+
+.ds-primary-btn:hover:not(:disabled),
+.ds-primary-btn:focus-visible:not(:disabled) {
+  background: #000;
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(20, 20, 20, 0.18);
 }
 
 .ds-primary-btn:disabled {
@@ -925,7 +1143,7 @@ a.ds-auth-btn {
 
 .ds-metric-cell strong {
   display: block;
-  font-size: clamp(28px, 4vw, 34px);
+  font-size: 34px;
   line-height: 1;
 }
 
@@ -950,6 +1168,11 @@ a.ds-auth-btn {
   align-items: center;
   padding: 15px 0;
   border-top: 1px solid #ece6dc;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .ds-list-line:first-of-type {
@@ -973,6 +1196,129 @@ a.ds-auth-btn {
   color: #827a70;
   font-size: 12px;
   line-height: 1.45;
+}
+
+.ds-opp {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #ece6dc;
+  border-radius: 16px;
+  background: #fffdf9;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.ds-opp:first-of-type {
+  margin-top: 0;
+}
+
+.ds-opp .ds-list-line {
+  border-top: 0;
+  padding: 6px 0 10px;
+}
+
+.ds-opp:hover {
+  border-color: #d6cbbc;
+  background: #fff;
+  box-shadow: var(--ds-shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.ds-asset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 0 14px 56px;
+}
+
+.ds-asset-btn {
+  border: 1px solid #ddd5c8;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.ds-asset-btn:hover:not(:disabled) {
+  background: #f3efe7;
+  border-color: #c8bfb0;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(31, 28, 22, 0.08);
+}
+
+.ds-asset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ds-asset-output {
+  margin: 0 0 14px 56px;
+  border: 1px solid #e5ded2;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.ds-asset-output-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #ece6dc;
+  background: #faf7f1;
+}
+
+.ds-asset-output-head b {
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.ds-asset-copy {
+  border: 0;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.ds-asset-copy:hover,
+.ds-asset-copy:focus-visible {
+  background: #000;
+  transform: translateY(-1px);
+}
+
+.ds-asset-gate {
+  margin: 0;
+  padding: 8px 12px;
+  color: #7a2e12;
+  background: #fff0e8;
+  border-bottom: 1px solid #f0d4c4;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.ds-asset-body {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+  color: #4f473e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .ds-brief-block {
@@ -1112,6 +1458,10 @@ a.ds-auth-btn {
   .ds-backtest-summary {
     grid-template-columns: 1fr;
   }
+
+  .ds-display-title {
+    font-size: 46px;
+  }
 }
 
 @media (max-width: 900px) {
@@ -1134,13 +1484,33 @@ a.ds-auth-btn {
     width: fit-content;
   }
 
+  .ds-asset-actions,
+  .ds-asset-output {
+    padding-left: 0;
+    margin-left: 0;
+  }
+
   .ds-post-main {
     grid-template-columns: 1fr;
   }
 
   .ds-tweet-signal-panel {
-    padding: 12px 0 0;
-    border-top: 1px solid #e8e1d6;
-    border-left: 0;
+    padding: 12px;
+    border: 1px solid #e8e1d6;
+  }
+}
+
+@media (max-width: 520px) {
+  .ds-display-title {
+    font-size: 34px;
+    line-height: 1;
+  }
+
+  .ds-metric-cell strong {
+    font-size: 28px;
+  }
+
+  .ds-tweet-actions {
+    grid-template-columns: 1fr;
   }
 }

@@ -256,6 +256,42 @@ export type DeepSearchResult = {
   report: DeepSearchReport;
 };
 
+/** 报告转任务所需的机会卡子集：足以驱动资产模板，无需整张卡的内部 draft */
+export type AssetOpportunity = Pick<
+  OpportunityCard,
+  | "id"
+  | "title"
+  | "whyNow"
+  | "audience"
+  | "score"
+  | "confidence"
+  | "priority"
+  | "evidenceCount"
+  | "growthActions"
+  | "sourceUrls"
+>;
+
+/** 生成 Output Asset 时的运营上下文：来自 plan / report，约束模板里的关键词与痛点 */
+export type AssetGenerationContext = {
+  vertical: VerticalId;
+  seedKeywords?: string[];
+  painPoints?: string[];
+  productDirection?: string;
+};
+
+/** 报告转任务的产物：可审核、可导出的运营资产（MVP 统一 markdown） */
+export type DeepSearchAsset = {
+  id: string;
+  opportunityId: string;
+  outputType: DeepSearchOutputType;
+  title: string;
+  format: "markdown";
+  content: string;
+  sourceUrls: string[];
+  reviewGate: boolean;
+  createdAt: string;
+};
+
 export type DeepSearchInput = {
   query?: string;
   goal?: string;

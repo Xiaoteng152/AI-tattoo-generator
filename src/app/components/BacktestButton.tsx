@@ -68,11 +68,11 @@ type SopilotPayload = {
 function compactBody(body: string) {
   const compacted = body.replace(/\s+/g, " ").trim();
 
-  if (compacted.length <= 260) {
+  if (compacted.length <= 190) {
     return compacted;
   }
 
-  return `${compacted.slice(0, 260).trimEnd()}.....`;
+  return `${compacted.slice(0, 190).trimEnd()}...`;
 }
 
 function metricLine(metrics: BacktestReport["sources"][number]["analyzed"][number]["rawItem"]["metrics"]) {
@@ -272,7 +272,7 @@ export function BacktestButton() {
                         <div className="ds-post-main">
                           <div className="ds-post-content">
                             <h4>
-                              <a href={item.rawItem.sourceUrl} rel="noreferrer" target="_blank">
+                              <a className="ds-post-title-link" href={item.rawItem.sourceUrl} rel="noreferrer" target="_blank">
                                 {sopilotPayload ? (item.rawItem.author ?? "unknown author") : item.rawItem.title}
                               </a>
                               <time dateTime={item.rawItem.publishedAt}>
@@ -296,10 +296,12 @@ export function BacktestButton() {
                                 <span>预测浏览量</span>
                                 <strong>{formatCompactNumber(sopilotPayload.predictedViews)}</strong>
                               </div>
-                              <button type="button">生成评论</button>
-                              <a href={item.rawItem.sourceUrl} rel="noreferrer" target="_blank">
-                                查看原贴
-                              </a>
+                              <div className="ds-tweet-actions">
+                                <button type="button">生成评论</button>
+                                <a href={item.rawItem.sourceUrl} rel="noreferrer" target="_blank">
+                                  查看原贴
+                                </a>
+                              </div>
                               <small>
                                 评论预计可获得 {formatCompactNumber(sopilotPayload.predictedCommentViews)} 次曝光
                               </small>

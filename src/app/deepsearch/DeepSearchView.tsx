@@ -5,6 +5,10 @@
  */
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import {
+  getOutputTypeLabel,
+  getOutputTypesForVertical
+} from "@/modules/deepsearch/asset-generator";
 import { SiteNav } from "../components/SiteNav";
 import {
   DEFAULT_DEEPSEARCH_QUERY,
@@ -19,6 +23,25 @@ type VerticalId =
   | "community_kol";
 
 type Depth = "quick" | "standard" | "deep";
+
+type OutputType =
+  | "seo_brief"
+  | "short_video"
+  | "pinterest_prompt"
+  | "kol_outreach"
+  | "markdown_report";
+
+type GeneratedAsset = {
+  id: string;
+  opportunityId: string;
+  outputType: OutputType;
+  title: string;
+  format: string;
+  content: string;
+  sourceUrls: string[];
+  reviewGate: boolean;
+  createdAt: string;
+};
 
 type Evidence = {
   id: string;
@@ -379,11 +402,94 @@ export function DeepSearchView() {
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [activeNav, setActiveNav] = useState<(typeof navItems)[number]["id"]>("ds-query");
+  const [assetsByOpportunity, setAssetsByOpportunity] = useState<
+    Record<string, GeneratedAsset[]>
+  >({});
+  const [assetBusy, setAssetBusy] = useState<string | null>(null);
+  const [assetError, setAssetError] = useState<string | null>(null);
+  const [copiedAssetId, setCopiedAssetId] = useState<string | null>(null);
 
   const timeline = useMemo(
     () => buildTimeline(result, isRunning),
     [result, isRunning]
   );
+
+  async function generateAsset(
+    opportunity: OpportunityCard,
+    outputType: OutputType
+  ) {
+    if (!result) {
+      return;
+    }
+
+    const busyKey = `${opportunity.id}:${outputType}`;
+    setAssetBusy(busyKey);
+    setAssetError(null);
+
+    try {
+      const response = await fetch("/api/deepsearch/assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outputType,
+          opportunity: {
+            id: opportunity.id,
+            title: opportunity.title,
+            whyNow: opportunity.whyNow,
+            audience: opportunity.audience,
+            score: opportunity.score,
+            confidence: opportunity.confidence,
+            priority: opportunity.priority,
+            evidenceCount: opportunity.evidenceCount,
+            growthActions: opportunity.growthActions,
+            sourceUrls: opportunity.sourceUrls
+          },
+          context: {
+            vertical: result.state.vertical,
+            seedKeywords: result.plan.seedKeywords,
+            painPoints: result.report.userPainPoints,
+            productDirection: verticalLabels[result.state.vertical]
+          }
+        })
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { asset?: GeneratedAsset; error?: unknown }
+        | null;
+
+      if (!response.ok || !payload?.asset) {
+        setAssetError(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "资产生成失败，请重试。"
+        );
+        return;
+      }
+
+      const asset = payload.asset;
+      setAssetsByOpportunity((current) => {
+        const existing = current[opportunity.id] ?? [];
+        const withoutSameType = existing.filter(
+          (entry) => entry.outputType !== asset.outputType
+        );
+        return { ...current, [opportunity.id]: [...withoutSameType, asset] };
+      });
+    } catch {
+      setAssetError("资产生成请求失败，请检查网络后重试。");
+    } finally {
+      setAssetBusy(null);
+    }
+  }
+
+  async function copyAsset(asset: GeneratedAsset) {
+    try {
+      await navigator.clipboard.writeText(asset.content);
+      setCopiedAssetId(asset.id);
+      window.setTimeout(() => setCopiedAssetId(null), 1500);
+    } catch {
+      setAssetError("复制失败，请手动选择文本。");
+    }
+  }
 
   async function runDeepSearch() {
     const seedKeywords = keywords
@@ -394,6 +500,8 @@ export function DeepSearchView() {
     setIsRunning(true);
     setError(null);
     setResult(null);
+    setAssetsByOpportunity({});
+    setAssetError(null);
     setActiveNav("ds-plan");
 
     const response = await fetch("/api/deepsearch", {
@@ -595,21 +703,73 @@ export function DeepSearchView() {
 
               <div className="ds-report-grid" id="ds-report">
                 <section className="ds-panel">
-                  <p className="ds-small-label">Opportunity Cards</p>
+                  <p className="ds-small-label">Opportunity Cards · 一键转任务</p>
+                  {assetError ? <p className="ds-warning">{assetError}</p> : null}
                   {opportunities.length ? (
-                    opportunities.map((opportunity, index) => (
-                      <article className="ds-list-line" key={opportunity.id}>
-                        <span>{String(index + 1).padStart(2, "0")}</span>
-                        <div>
-                          <b>{opportunity.title}</b>
-                          <small>
-                            score {opportunity.score} · evidence {opportunity.evidenceCount} ·{" "}
-                            {opportunity.whyNow}
-                          </small>
+                    opportunities.map((opportunity, index) => {
+                      const outputTypes = getOutputTypesForVertical(
+                        result.state.vertical
+                      ) as OutputType[];
+                      const generated = assetsByOpportunity[opportunity.id] ?? [];
+
+                      return (
+                        <div className="ds-opp" key={opportunity.id}>
+                          <article className="ds-list-line">
+                            <span>{String(index + 1).padStart(2, "0")}</span>
+                            <div>
+                              <b>{opportunity.title}</b>
+                              <small>
+                                score {opportunity.score} · evidence{" "}
+                                {opportunity.evidenceCount} · {opportunity.whyNow}
+                              </small>
+                            </div>
+                            <span className="ds-score-pill">
+                              {priorityLabels[opportunity.priority]}
+                            </span>
+                          </article>
+                          <div className="ds-asset-actions">
+                            {outputTypes.map((outputType) => {
+                              const busyKey = `${opportunity.id}:${outputType}`;
+                              const isBusy = assetBusy === busyKey;
+
+                              return (
+                                <button
+                                  className="ds-asset-btn"
+                                  disabled={Boolean(assetBusy)}
+                                  key={outputType}
+                                  onClick={() => generateAsset(opportunity, outputType)}
+                                  type="button"
+                                >
+                                  {isBusy
+                                    ? "生成中…"
+                                    : `转 ${getOutputTypeLabel(outputType)}`}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {generated.map((asset) => (
+                            <div className="ds-asset-output" key={asset.id}>
+                              <div className="ds-asset-output-head">
+                                <b>{asset.title}</b>
+                                <button
+                                  className="ds-asset-copy"
+                                  onClick={() => copyAsset(asset)}
+                                  type="button"
+                                >
+                                  {copiedAssetId === asset.id ? "已复制" : "复制"}
+                                </button>
+                              </div>
+                              {asset.reviewGate ? (
+                                <p className="ds-asset-gate">
+                                  需运营审核后再发送，禁止自动外发。
+                                </p>
+                              ) : null}
+                              <pre className="ds-asset-body">{asset.content}</pre>
+                            </div>
+                          ))}
                         </div>
-                        <span className="ds-score-pill">{priorityLabels[opportunity.priority]}</span>
-                      </article>
-                    ))
+                      );
+                    })
                   ) : (
                     <p className="ds-empty">本轮未生成机会卡片。</p>
                   )}

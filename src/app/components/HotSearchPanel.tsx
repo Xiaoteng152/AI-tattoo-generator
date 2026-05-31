@@ -30,7 +30,7 @@ export function HotSearchPanel() {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch("/api/hot-tweets?limit=5");
+      const response = await fetch("/api/hot-tweets?limit=3");
       const payload = (await response.json().catch(() => null)) as
         | { items?: HotTweet[]; error?: string }
         | null;
@@ -86,8 +86,13 @@ export function HotSearchPanel() {
                 <span className="ds-hot-search-heat">{item.viralProbability}% · {formatViews(item.views)} 浏览</span>
               </div>
               <p>{item.body}</p>
-              <a className="ds-text-link" href={item.sourceUrl} rel="noreferrer" target="_blank">
-                查看原帖
+              <a
+                className="ds-action-link ds-action-link--subtle"
+                href={item.sourceUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                查看原贴
               </a>
             </article>
           ))
