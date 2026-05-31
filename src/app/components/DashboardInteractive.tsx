@@ -53,16 +53,73 @@ export function DashboardInteractive({
 }: DashboardInteractiveProps) {
   // 与 WorkflowControl 共享，仅在 Opportunity Feed 标题下展示「正在生成中」。
   const [isGenerating, setIsGenerating] = useState(false);
+  const featuredOpportunity = opportunityCards[0];
+  const metricItems = [
+    { label: "Raw Items", value: summary?.rawItems ?? 5 },
+    { label: "Normalized", value: summary?.normalizedItems ?? 5 },
+    { label: "Opportunities", value: summary?.opportunities ?? opportunityCards.length },
+    { label: "Output Assets", value: summary?.outputAssets ?? 1 }
+  ];
+  const pipelineSteps = [
+    { label: "Capture", detail: "抓取热帖和来源 URL" },
+    { label: "Clean", detail: "归一化并去重" },
+    { label: "Rank", detail: "AI 评分机会" },
+    { label: "Ship", detail: "生成可用资产" }
+  ];
 
   return (
     <>
       <section className="ds-hero-strip">
-        <div>
-          <p className="ds-small-label">Growth workflow demo</p>
-          <h1 className="ds-display-title">Evidence-ranked growth opportunities.</h1>
-          <p className="ds-lead-copy">
-            从 X/Twitter 关键词搜索里保留证据链，归一化后生成机会排序、SEO brief 与可导出资产。
-          </p>
+        <div className="ds-hero-copy">
+          <div>
+            <p className="ds-small-label">Growth workflow demo</p>
+            <h1 className="ds-display-title">Evidence-ranked growth opportunities.</h1>
+            <p className="ds-lead-copy">
+              从 X/Twitter 关键词搜索里保留证据链，归一化后生成机会排序、SEO brief 与可导出资产。
+            </p>
+          </div>
+
+          <div className="ds-hero-dashboard" aria-label="Workflow snapshot">
+            <div className="ds-hero-metrics">
+              {metricItems.map((item) => (
+                <div className="ds-mini-metric" key={item.label}>
+                  <strong>{item.value}</strong>
+                  <span>{item.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="ds-process-row" aria-label="Pipeline steps">
+              {pipelineSteps.map((step, index) => (
+                <div className="ds-process-step" key={step.label}>
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <b>{step.label}</b>
+                  <small>{step.detail}</small>
+                </div>
+              ))}
+            </div>
+
+            {featuredOpportunity ? (
+              <article className="ds-spotlight-card">
+                <div>
+                  <p className="ds-small-label">Top opportunity</p>
+                  <h2>{featuredOpportunity.title}</h2>
+                  <p>
+                    证据 {featuredOpportunity.sourceUrls.length} · {featuredOpportunity.recommendedAct}
+                  </p>
+                </div>
+                <Link
+                  className="ds-action-link"
+                  href={buildDeepSearchHref({
+                    query: `Validate: ${featuredOpportunity.title}`
+                  })}
+                >
+                  DeepSearch 验证
+                </Link>
+                <span className="ds-score-pill">{featuredOpportunity.score}</span>
+              </article>
+            ) : null}
+          </div>
         </div>
         <aside className="ds-panel ds-control-panel">
           <p className="ds-small-label">X Workflow</p>
@@ -80,25 +137,6 @@ export function DashboardInteractive({
             </p>
           ) : null}
         </aside>
-      </section>
-
-      <section aria-label="Pipeline summary" className="ds-metric-strip">
-        <div className="ds-metric-cell">
-          <strong>{summary?.rawItems ?? 5}</strong>
-          <span>Raw Items</span>
-        </div>
-        <div className="ds-metric-cell">
-          <strong>{summary?.normalizedItems ?? 5}</strong>
-          <span>Normalized</span>
-        </div>
-        <div className="ds-metric-cell">
-          <strong>{summary?.opportunities ?? opportunityCards.length}</strong>
-          <span>Opportunities</span>
-        </div>
-        <div className="ds-metric-cell">
-          <strong>{summary?.outputAssets ?? 1}</strong>
-          <span>Output Assets</span>
-        </div>
       </section>
 
       <section className="ds-work-grid">
