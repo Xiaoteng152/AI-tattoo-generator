@@ -3,7 +3,7 @@ import Link from "next/link";
 export const GITHUB_REPO_URL = "https://github.com/Xiaoteng152/AI-tattoo-generator";
 
 type SiteNavProps = {
-  active: "dashboard" | "deepsearch";
+  active: "dashboard" | "deepsearch" | "trading";
 };
 
 export function SiteNav({ active }: SiteNavProps) {
@@ -18,6 +18,11 @@ export function SiteNav({ active }: SiteNavProps) {
         <span className="is-active">DeepSearch</span>
       ) : (
         <Link href="/deepsearch">DeepSearch</Link>
+      )}
+      {active === "trading" ? (
+        <span className="is-active">Trading Radar</span>
+      ) : (
+        <Link href="/trading-radar">Trading Radar</Link>
       )}
       <a href={GITHUB_REPO_URL} rel="noreferrer" target="_blank">
         GitHub

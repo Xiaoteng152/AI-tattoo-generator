@@ -38,6 +38,7 @@
 | Dashboard | Next.js 首页展示最近运行、机会栈、资产与回测入口 |
 | Backtest | 不依赖 PostgreSQL，可单独验证数据源与分析是否连通 |
 | DeepSearch | `/deepsearch` 围绕单个机会继续规划问题、拉证据、出研究报告（需 OAuth） |
+| Trading Radar | `/trading-radar` 监控自定义 X 博主，记录未读，并生成有原文证据的精简交易信号（需 OAuth） |
 
 连接器模式（`CONNECTORS_MODE`）：
 
@@ -125,9 +126,15 @@ ETSY_API_KEY="your_etsy_keystring"
 OPENAI_API_KEY="your_openai_or_compatible_key"
 OPENAI_BASE_URL="https://api.openai.com/v1"
 OPENAI_MODEL="gpt-4o-mini"
+TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
+TELEGRAM_CHAT_ID="your_personal_chat_id"
 ```
 
 X/Twitter 默认用 SoPilot RSS，再按关键词过滤。若改用官方 API：设 `TWITTER_SOURCE="x-api"` 并配置 `X_BEARER_TOKEN`（受套餐、限流与 recent-search 时间窗约束）。
+
+Trading Radar 始终使用官方 X 用户时间线，不使用 SoPilot 兜底。添加博主时首次导入最近 10 条原创/引用推文，之后每 15 分钟使用增量游标同步。交易分析没有规则回退：必须配置 `OPENAI_API_KEY` 才会生成信号；配置 Telegram 两个变量后，明确的符合/冲突信号会被推送。
+
+交易雷达继续使用 Supabase Postgres 作为唯一业务数据库，不使用 Cloudflare D1、Hyperdrive、KV、R2 或双写。目标部署架构中，Vercel Hobby 环境由 Cloudflare Worker Cron 每 15 分钟携带 `Authorization: Bearer $CRON_SECRET` 调用同步接口；Cloudflare 只负责调度。当前仓库仍保留待替换的 15 分钟 `vercel.json` 配置，在 Cloudflare Cron 上线前必须按操作清单移除或禁用，确保同一环境只有一个调度来源。升级到支持同频率 Cron 的 Vercel 套餐后也可以改回 Vercel Cron。
 
 回测示例：
 
@@ -157,3 +164,5 @@ npm run test:deepsearch
 - [Agent 指南与 Git 规范](AGENTS.md)
 - [领域上下文](CONTEXT.md)
 - [版本任务路线图](task.md)
+- [交易博主雷达 PRD](.scratch/creator-trading-radar/PRD.md)
+- [交易博主雷达上线操作清单](.scratch/creator-trading-radar/OPERATIONS.md)

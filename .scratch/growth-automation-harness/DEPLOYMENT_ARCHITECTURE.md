@@ -11,6 +11,7 @@ Vercel + Supabase + Next.js 可以作为 Growth Automation Harness MVP 的生产
 - **Next.js on Vercel**：承载 Dashboard、DeepSearch UI、Route Handlers、手动触发 API、轻量导出 API。
 - **Supabase Postgres**：承载 Prisma 管理的业务数据库，保存 Workflow Config、Workflow Run、Raw Item、Normalized Item、Enrichment、Opportunity、Output Asset、DeepSearch Run 和 Report。
 - **Vercel Cron**：只用于触发低频、短时的 workflow 扫描，不承载复杂调度系统。
+- **Cloudflare Worker Cron**：只作为交易博主雷达在 Vercel Hobby 上的 15 分钟外部调度器，不保存业务数据，也不直接连接 Supabase。
 - **Auth.js Google OAuth**：MVP 阶段继续使用当前代码里的 Auth.js，不在本阶段切换到 Supabase Auth。
 - **Supabase Storage**：暂不作为 MVP 必需项。Markdown/CSV 可以先由 API 动态生成或保存在 `OutputAsset.content`。
 
@@ -113,6 +114,13 @@ Vercel Cron 只负责低频触发：
 - API 内必须校验 `CRON_SECRET`，避免公开触发。
 
 不在 MVP 阶段实现复杂调度编排。`WorkflowConfig.schedule` 可以先作为配置字段保存，真正的多任务调度后续再做。
+
+交易博主雷达是频率上的特例：
+
+- Vercel Hobby 环境由 Cloudflare Worker Cron 每 15 分钟调用受保护的 Sync API。
+- Worker 只保存生产 Sync API 地址和 `CRON_SECRET`，不保存 X、AI、Telegram 凭证或任何业务数据。
+- 交易雷达仍只写入 Supabase Postgres；不使用 D1、Hyperdrive、KV、R2 或双写。
+- 如果环境升级到支持 15 分钟 Vercel Cron 的套餐，可以切回 Vercel Cron，但同一环境只能启用一个调度来源。
 
 ## 4. 关键限制
 
