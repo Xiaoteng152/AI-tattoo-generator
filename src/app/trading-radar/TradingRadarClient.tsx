@@ -24,7 +24,6 @@ type CreatorPost = {
   postType: string;
   isInitialImport: boolean;
   readAt: string | null;
-  metrics: Record<string, number>;
   creator: Creator;
 };
 
@@ -42,6 +41,8 @@ type TradingSignal = {
 type DigestResult = {
   id: string;
   digest: { summary: string[]; signals: TradingSignal[] };
+  strategySnapshot?: string;
+  strategyVersion?: number;
   createdAt: string;
 };
 
@@ -149,6 +150,23 @@ export function TradingRadarClient() {
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "筛选失败");
+    }
+  }
+
+  async function toggleCreatorEnabled(creator: Creator) {
+    setIsBusy(true);
+    setError(null);
+    try {
+      await jsonRequest(`/api/trading-radar/creators/${creator.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !creator.enabled })
+      });
+      await loadSnapshot(selectedIds);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "更新博主状态失败");
+    } finally {
+      setIsBusy(false);
     }
   }
 
@@ -290,7 +308,7 @@ export function TradingRadarClient() {
             {snapshot.creators.map((creator) => {
               const selected = selectedIds.includes(creator.id);
               return (
-                <label className={`${styles.creatorRow} ${selected ? styles.creatorSelected : ""}`} key={creator.id}>
+                <label className={`${styles.creatorRow} ${selected ? styles.creatorSelected : ""} ${creator.enabled ? "" : styles.creatorDisabled}`} key={creator.id}>
                   <input
                     checked={selected}
                     onChange={() => {
@@ -310,8 +328,23 @@ export function TradingRadarClient() {
                   </span>
                   <span className={styles.creatorIdentity}>
                     <strong>{creator.displayName}</strong>
-                    <small>@{creator.handle} · {relativeTime(creator.lastSyncedAt)}</small>
+                    <small>
+                      @{creator.handle} · {relativeTime(creator.lastSyncedAt)}
+                      {!creator.enabled ? " · 已停用" : ""}
+                    </small>
                   </span>
+                  <button
+                    className={styles.creatorToggle}
+                    disabled={isBusy}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void toggleCreatorEnabled(creator);
+                    }}
+                    type="button"
+                  >
+                    {creator.enabled ? "停用" : "恢复"}
+                  </button>
                   {creator.unreadCount ? <b className={styles.unreadBadge}>{creator.unreadCount}</b> : null}
                 </label>
               );

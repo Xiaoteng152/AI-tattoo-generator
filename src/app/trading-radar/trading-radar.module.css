@@ -80,7 +80,11 @@
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .creatorList { display: grid; gap: 7px; max-height: 38vh; overflow: auto; }
-.creatorRow { display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid transparent; border-radius: 12px; color: #9ca7b5; cursor: pointer; }
+.creatorRow { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid transparent; border-radius: 12px; color: #9ca7b5; cursor: pointer; }
+.creatorDisabled { opacity: 0.62; }
+.creatorToggle { border: 1px solid #303844; border-radius: 7px; padding: 4px 8px; color: #84909e; background: transparent; font-size: 11px; cursor: pointer; }
+.creatorToggle:hover:not(:disabled) { color: #e7edf3; border-color: #53606e; }
+.creatorToggle:disabled { opacity: 0.5; cursor: not-allowed; }
 .creatorRow input { position: absolute; opacity: 0; pointer-events: none; }
 .creatorSelected { border-color: #36414d; background: #171c23; color: #f0f4f8; }
 .avatar { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; color: #11171a; background: #789e98 center/cover; font-weight: 900; }
