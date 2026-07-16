@@ -14,13 +14,42 @@ function digestInputKey(creatorIds: string[], rawItemIds: string[], strategyVers
     .digest("hex");
 }
 
-function readStoredDigest(record: { id: string; summary: Prisma.JsonValue; signals: Prisma.JsonValue; createdAt: Date }) {
+export function buildTradingDigestRecord(input: {
+  inputKey: string;
+  creatorIds: string[];
+  rawItemIds: string[];
+  digest: TradingDigest;
+  strategy: { id: string; content: string; version: number };
+}) {
+  return {
+    inputKey: input.inputKey,
+    creatorIds: input.creatorIds,
+    rawItemIds: input.rawItemIds,
+    summary: input.digest.summary,
+    signals: input.digest.signals,
+    promptVersion: TRADING_PROMPT_VERSION,
+    strategyId: input.strategy.id,
+    strategyVersion: input.strategy.version,
+    strategySnapshot: input.strategy.content
+  };
+}
+
+function readStoredDigest(record: {
+  id: string;
+  summary: Prisma.JsonValue;
+  signals: Prisma.JsonValue;
+  strategySnapshot: string;
+  strategyVersion: number;
+  createdAt: Date;
+}) {
   return {
     id: record.id,
     digest: {
       summary: Array.isArray(record.summary) ? (record.summary as string[]) : [],
       signals: Array.isArray(record.signals) ? (record.signals as unknown as TradingDigest["signals"]) : []
     },
+    strategySnapshot: record.strategySnapshot,
+    strategyVersion: record.strategyVersion,
     createdAt: record.createdAt
   };
 }
@@ -81,16 +110,18 @@ export async function getOrCreateTradingDigest(
     posts: rawItems.map((item) => ({ id: item.id, text: item.body, sourceUrl: item.sourceUrl }))
   });
   const persistedKey = options.force ? `${inputKey}:${Date.now()}` : inputKey;
+  const recordData = buildTradingDigestRecord({
+    inputKey: persistedKey,
+    creatorIds: uniqueCreatorIds,
+    rawItemIds: rawItems.map((item) => item.id),
+    digest,
+    strategy
+  });
   const record = await prisma.tradingDigest.create({
     data: {
-      inputKey: persistedKey,
-      creatorIds: uniqueCreatorIds,
-      rawItemIds: rawItems.map((item) => item.id),
-      summary: digest.summary,
-      signals: digest.signals as unknown as Prisma.InputJsonValue,
-      promptVersion: TRADING_PROMPT_VERSION,
-      strategyId: strategy.id,
-      strategyVersion: strategy.version
+      ...recordData,
+      summary: recordData.summary as unknown as Prisma.InputJsonValue,
+      signals: recordData.signals as unknown as Prisma.InputJsonValue
     }
   });
 
@@ -102,7 +133,7 @@ export async function getOrCreateTradingDigest(
   ) {
     await deliverTradingDigestToTelegram(record.id, digest);
   }
-  return { id: record.id, digest, createdAt: record.createdAt };
+  return { id: record.id, digest, strategySnapshot: record.strategySnapshot, strategyVersion: record.strategyVersion, createdAt: record.createdAt };
 }
 
 export async function findLatestTradingDigest(creatorIds: string[]) {

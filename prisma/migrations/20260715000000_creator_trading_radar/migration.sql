@@ -26,7 +26,6 @@ CREATE TABLE "creator_raw_items" (
     "language" TEXT NOT NULL DEFAULT 'und',
     "post_type" TEXT NOT NULL,
     "payload" JSONB NOT NULL,
-    "metrics" JSONB NOT NULL,
     "is_initial_import" BOOLEAN NOT NULL DEFAULT false,
     "read_at" TIMESTAMP(3),
     "first_seen_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -53,6 +52,7 @@ CREATE TABLE "trading_digests" (
     "prompt_version" TEXT NOT NULL,
     "strategy_id" TEXT NOT NULL,
     "strategy_version" INTEGER NOT NULL,
+    "strategy_snapshot" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "trading_digests_pkey" PRIMARY KEY ("id")
 );

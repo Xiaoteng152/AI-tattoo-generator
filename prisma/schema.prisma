@@ -322,7 +322,6 @@ model CreatorRawItem {
   language        String         @default("und")
   postType        String         @map("post_type")
   payload         Json
-  metrics         Json
   isInitialImport Boolean        @default(false) @map("is_initial_import")
   readAt          DateTime?      @map("read_at")
   firstSeenAt     DateTime       @default(now()) @map("first_seen_at")
@@ -353,10 +352,11 @@ model TradingDigest {
   rawItemIds      String[]               @map("raw_item_ids")
   summary         Json
   signals         Json
-  promptVersion   String                 @map("prompt_version")
-  strategyId      String                 @map("strategy_id")
-  strategyVersion Int                    @map("strategy_version")
-  createdAt       DateTime               @default(now()) @map("created_at")
+  promptVersion     String                 @map("prompt_version")
+  strategyId        String                 @map("strategy_id")
+  strategyVersion   Int                    @map("strategy_version")
+  strategySnapshot  String                 @map("strategy_snapshot")
+  createdAt         DateTime               @default(now()) @map("created_at")
   strategy        TradingStrategy        @relation(fields: [strategyId], references: [id], onDelete: Restrict)
   deliveries      NotificationDelivery[]
 

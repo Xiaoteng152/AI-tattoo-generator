@@ -15,13 +15,18 @@ export function getConfiguredCreatorTimelineClient() {
   return createXCreatorTimelineClient({ bearerToken });
 }
 
+/** 仅同步启用中的博主；停用博主不会被定时或手动全量同步选中 */
+export function buildEnabledCreatorFilter(creatorIds?: string[]) {
+  return {
+    enabled: true as const,
+    ...(creatorIds?.length ? { id: { in: creatorIds } } : {})
+  };
+}
+
 export async function syncWatchedCreators(creatorIds?: string[]) {
   const client = getConfiguredCreatorTimelineClient();
   const creators = await prisma.watchedCreator.findMany({
-    where: {
-      enabled: true,
-      ...(creatorIds?.length ? { id: { in: creatorIds } } : {})
-    },
+    where: buildEnabledCreatorFilter(creatorIds),
     orderBy: { updatedAt: "desc" }
   });
 
@@ -46,7 +51,6 @@ export async function syncWatchedCreators(creatorIds?: string[]) {
               language: post.language,
               postType: post.postType,
               payload: post.rawPayload as Prisma.InputJsonObject,
-              metrics: post.metrics as Prisma.InputJsonObject,
               isInitialImport
             })),
             skipDuplicates: true
