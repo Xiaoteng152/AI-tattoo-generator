@@ -23,6 +23,28 @@ export function buildEnabledCreatorFilter(creatorIds?: string[]) {
   };
 }
 
+export type CreatorSyncResult = {
+  creatorId: string;
+  added: number;
+  initial: boolean;
+  error: string | null;
+  analysisError: string | null;
+};
+
+export function summarizeCreatorSyncResults(results: CreatorSyncResult[]) {
+  const failed = results.filter((result) => result.error !== null || result.analysisError !== null).length;
+  const succeeded = results.length - failed;
+  const status = failed === 0 ? "success" : succeeded === 0 ? "failed" : "partial";
+
+  return {
+    ok: status === "success",
+    status,
+    total: results.length,
+    succeeded,
+    failed
+  } as const;
+}
+
 export async function syncWatchedCreators(creatorIds?: string[]) {
   const client = getConfiguredCreatorTimelineClient();
   const creators = await prisma.watchedCreator.findMany({
@@ -30,7 +52,7 @@ export async function syncWatchedCreators(creatorIds?: string[]) {
     orderBy: { updatedAt: "desc" }
   });
 
-  const results = [];
+  const results: CreatorSyncResult[] = [];
   for (const creator of creators) {
     const isInitialImport = creator.newestPostId === null;
     try {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildEnabledCreatorFilter } from "../creator-sync";
+import { buildEnabledCreatorFilter, summarizeCreatorSyncResults } from "../creator-sync";
 import { buildTradingDigestRecord } from "../digest-service";
 
 test("buildTradingDigestRecord saves strategy snapshot with version metadata", () => {
@@ -49,5 +49,28 @@ test("buildEnabledCreatorFilter only selects enabled creators", () => {
   assert.deepEqual(buildEnabledCreatorFilter(["a", "b"]), {
     enabled: true,
     id: { in: ["a", "b"] }
+  });
+});
+
+test("summarizeCreatorSyncResults reports partial and complete failures", () => {
+  const partial = summarizeCreatorSyncResults([
+    { creatorId: "a", added: 1, initial: false, error: null, analysisError: null },
+    { creatorId: "b", added: 0, initial: false, error: "X unavailable", analysisError: null }
+  ]);
+  const failed = summarizeCreatorSyncResults([
+    { creatorId: "a", added: 1, initial: false, error: null, analysisError: "AI unavailable" }
+  ]);
+
+  assert.deepEqual(partial, { ok: false, status: "partial", total: 2, succeeded: 1, failed: 1 });
+  assert.deepEqual(failed, { ok: false, status: "failed", total: 1, succeeded: 0, failed: 1 });
+});
+
+test("summarizeCreatorSyncResults treats an empty enabled-creator set as success", () => {
+  assert.deepEqual(summarizeCreatorSyncResults([]), {
+    ok: true,
+    status: "success",
+    total: 0,
+    succeeded: 0,
+    failed: 0
   });
 });

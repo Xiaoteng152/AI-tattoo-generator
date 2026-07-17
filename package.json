@@ -11,10 +11,16 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/modules/deepsearch/__tests__/*.test.ts src/modules/trading-radar/__tests__/*.test.ts",
+    "typecheck": "tsc --noEmit && npm run typecheck:worker",
+    "typecheck:worker": "tsc --noEmit -p workers/trading-radar-cron/tsconfig.json",
+    "test": "node --import tsx --test src/modules/deepsearch/__tests__/*.test.ts src/modules/trading-radar/__tests__/*.test.ts workers/trading-radar-cron/test/*.test.ts",
     "test:deepsearch": "node --import tsx --test src/modules/deepsearch/__tests__/*.test.ts",
     "test:trading-radar": "node --import tsx --test src/modules/trading-radar/__tests__/*.test.ts",
+    "test:worker": "node --import tsx --test workers/trading-radar-cron/test/*.test.ts",
+    "worker:dev": "wrangler dev --config workers/trading-radar-cron/wrangler.toml --test-scheduled",
+    "worker:dry-run": "wrangler deploy --dry-run --config workers/trading-radar-cron/wrangler.toml",
+    "worker:check": "npm run test:worker && npm run typecheck:worker && npm run worker:dry-run",
+    "worker:deploy": "wrangler deploy --config workers/trading-radar-cron/wrangler.toml",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -38,6 +44,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20260716.1",
     "@tailwindcss/postcss": "^4.3.0",
     "@types/node": "^25.8.0",
     "@types/react": "^19.2.14",
@@ -48,6 +55,7 @@
     "postcss": "^8.5.14",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.22.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "wrangler": "4.111.0"
   }
 }

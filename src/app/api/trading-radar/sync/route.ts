@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hasTradingRadarSession, hasValidCronSecret } from "@/modules/trading-radar/route-auth";
-import { syncWatchedCreators } from "@/modules/trading-radar/creator-sync";
+import { summarizeCreatorSyncResults, syncWatchedCreators } from "@/modules/trading-radar/creator-sync";
 
 export const runtime = "nodejs";
 
@@ -17,7 +17,16 @@ async function runSync(request: Request, body: unknown) {
   }
   try {
     const results = await syncWatchedCreators(parsed.data.creatorIds);
-    return NextResponse.json({ results, syncedAt: new Date().toISOString() });
+    const summary = summarizeCreatorSyncResults(results);
+    return NextResponse.json(
+      {
+        ...summary,
+        results,
+        syncedAt: new Date().toISOString(),
+        ...(summary.status === "failed" ? { error: "All enabled creator sync tasks failed" } : {})
+      },
+      { status: summary.status === "failed" ? 503 : 200 }
+    );
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Trading radar sync failed" },

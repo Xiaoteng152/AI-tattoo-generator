@@ -13,8 +13,12 @@ build/
 # local env
 .env
 .env*.local
+.dev.vars*
 .local.env
 vercel-backend.env
+
+# cloudflare workers
+.wrangler/
 
 # logs
 npm-debug.log*

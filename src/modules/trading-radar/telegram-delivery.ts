@@ -9,6 +9,48 @@ type TelegramApiResponse = {
   description?: string;
 };
 
+type DeliveryWithStatus = { status: NotificationDeliveryStatus };
+
+type TelegramDeliveryClaimDeps<T extends DeliveryWithStatus> = {
+  createPending: () => Promise<T>;
+  findExisting: () => Promise<T | null>;
+  retryFailed: () => Promise<boolean>;
+};
+
+function isUniqueConstraintError(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
+/**
+ * Uses the unique idempotency key as an atomic send claim. Failed deliveries may
+ * be retried, but an in-flight PENDING delivery is never reclaimed concurrently.
+ */
+export async function claimTelegramDelivery<T extends DeliveryWithStatus>(deps: TelegramDeliveryClaimDeps<T>) {
+  try {
+    const delivery = await deps.createPending();
+    return { claimed: true, delivery } as const;
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+  }
+
+  const existing = await deps.findExisting();
+  if (!existing) {
+    throw new Error("Telegram delivery claim exists but cannot be loaded");
+  }
+  if (
+    existing.status === NotificationDeliveryStatus.SENT ||
+    existing.status === NotificationDeliveryStatus.SKIPPED ||
+    existing.status === NotificationDeliveryStatus.PENDING
+  ) {
+    return { claimed: false, delivery: existing } as const;
+  }
+
+  if (await deps.retryFailed()) {
+    return { claimed: true, delivery: null } as const;
+  }
+  return { claimed: false, delivery: await deps.findExisting() } as const;
+}
+
 export async function deliverTradingDigestToTelegram(digestId: string, digest: TradingDigest) {
   const message = buildTelegramTradingMessage({ digestId, ...digest });
   const idempotencyKey = message?.idempotencyKey ?? `telegram:trading-digest:${digestId}`;
@@ -48,16 +90,35 @@ export async function deliverTradingDigestToTelegram(digestId: string, digest: T
     });
   }
 
-  await prisma.notificationDelivery.upsert({
-    where: { idempotencyKey },
-    update: { status: NotificationDeliveryStatus.PENDING, error: null },
-    create: {
-      digestId,
-      channel: "telegram",
-      idempotencyKey,
-      status: NotificationDeliveryStatus.PENDING
+  const claim = await claimTelegramDelivery({
+    createPending: () =>
+      prisma.notificationDelivery.create({
+        data: {
+          digestId,
+          channel: "telegram",
+          idempotencyKey,
+          status: NotificationDeliveryStatus.PENDING
+        }
+      }),
+    findExisting: () => prisma.notificationDelivery.findUnique({ where: { idempotencyKey } }),
+    retryFailed: async () => {
+      const result = await prisma.notificationDelivery.updateMany({
+        where: {
+          idempotencyKey,
+          status: { in: [NotificationDeliveryStatus.FAILED, NotificationDeliveryStatus.NOT_CONFIGURED] }
+        },
+        data: {
+          status: NotificationDeliveryStatus.PENDING,
+          providerMessageId: null,
+          sentAt: null,
+          error: null
+        }
+      });
+      return result.count === 1;
     }
   });
+
+  if (!claim.claimed) return claim.delivery;
 
   try {
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -86,9 +147,10 @@ export async function deliverTradingDigestToTelegram(digestId: string, digest: T
     });
   } catch (error) {
     const messageText = error instanceof Error ? error.message : "Telegram delivery failed";
-    return prisma.notificationDelivery.update({
-      where: { idempotencyKey },
+    await prisma.notificationDelivery.updateMany({
+      where: { idempotencyKey, status: NotificationDeliveryStatus.PENDING },
       data: { status: NotificationDeliveryStatus.FAILED, error: messageText }
     });
+    throw new Error(messageText);
   }
 }
