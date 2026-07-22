@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Grok X trading discovery collector twice weekly
+
+[Timer]
+OnCalendar=Tue,Fri *-*-* 00:30:00 UTC
+Persistent=true
+RandomizedDelaySec=5min
+Unit=grok-radar.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,36 @@
+[Unit]
+Description=Grok X trading discovery collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=grok-runner
+Group=grok-runner
+WorkingDirectory=/var/lib/grok-radar/work
+Environment=HOME=/home/grok-runner
+Environment=PATH=/home/grok-runner/.grok/bin:/usr/local/bin:/usr/bin:/bin
+Environment=GROK_BIN=/home/grok-runner/.grok/bin/grok
+Environment=GROK_RADAR_DATA=/var/lib/grok-radar
+Environment=GROK_RADAR_PROMPT=/opt/grok-radar/prompt.txt
+Environment=GROK_RADAR_TIMEOUT=180
+# Set on the host (do not commit secrets):
+# Environment=GROK_RADAR_API_URL=https://<production-domain>/api/trading-radar
+# Environment=GROK_INGEST_SECRET=<32+-byte-secret>
+EnvironmentFile=-/etc/grok-radar.env
+ExecStart=/usr/bin/python3 /opt/grok-radar/collect.py
+TimeoutStartSec=240
+UMask=0077
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/grok-radar /home/grok-runner/.grok
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=320M
+MemorySwapMax=512M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target
