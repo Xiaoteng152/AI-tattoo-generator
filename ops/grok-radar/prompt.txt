@@ -9,17 +9,24 @@ Keep a post only when it is about at least one of these topics:
 Current trading strategy snapshot (for MATCH / CONFLICT / UNKNOWN only; never invent fills):
 {{STRATEGY}}
 
+Mandatory tool use:
+- You MUST call the X search tool (x_search / x_keyword_search) at least once before answering.
+- Do not invent status IDs, URLs, timestamps, or body text from memory.
+- If the tool returns nothing reliable, return empty findings.
+- Final JSON without a completed tool call is invalid.
+
 Prefer posts that contain a concrete market view, stated condition, invalidation/risk, or clearly attributable observation. Prefer original posts over replies and reposts.
 
 Rules:
-- Use x_search only.
+- Use x_search / x_keyword_search only.
 - Return at most {{MAX_FINDINGS}} findings total, and at most {{MAX_FINDINGS_PER_ACCOUNT}} findings per account.
 - Process all listed accounts in one response. Do not invent extra accounts.
 - Do not return a post merely because it mentions finance; it must match the configured keywords.
-- Every finding must contain the exact public x.com or twitter.com status URL.
+- Every finding must contain the exact public x.com or twitter.com status URL returned by the search tool.
 - creatorHandle must match the handle inside the URL.
-- sourceText must be a verbatim excerpt or search-extractable text from the post.
+- sourceText must be a verbatim excerpt or search-extractable text from the tool result.
 - sourceTextKind must be "verbatim_or_search_excerpt".
+- publishedAt must match the real post time implied by the status ID (do not invent a recent timestamp for an old ID).
 - Do not invent publication times, prices, entry conditions, invalidation levels, or author intent.
 - Use "未明确" when a field cannot be verified from sourceText.
 - Every non-"未明确" entryPrice / entryTiming / invalidation must include evidence that is a substring of sourceText.

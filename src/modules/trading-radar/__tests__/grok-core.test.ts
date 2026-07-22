@@ -59,10 +59,11 @@ test("computeSearchWindow overlaps previous success by 6 hours", () => {
   assert.equal(window.until.toISOString(), now.toISOString());
 });
 
-test("nextScheduledRunAt returns next Tue/Fri 00:30 UTC", () => {
-  const next = nextScheduledRunAt(new Date("2026-07-21T12:00:00Z")); // Tuesday
+test("nextScheduledRunAt returns next daily UTC slot", () => {
+  const next = nextScheduledRunAt(new Date("2026-07-21T12:00:00Z"));
   assert.ok(next);
-  assert.equal(next.toISOString(), "2026-07-24T00:30:00.000Z");
+  // 12:00 UTC → next slot is same-day 12:30 UTC
+  assert.equal(next.toISOString(), "2026-07-21T12:30:00.000Z");
 });
 
 test("parseXStatusUrl accepts x.com and twitter.com", () => {
@@ -107,4 +108,63 @@ test("validateGrokFindings rejects mismatched evidence and keeps valid rows", ()
   assert.equal(result.accepted[0].entryTiming, "月线低于 50D MA 时");
   assert.equal(result.accepted[0].entryPrice, "未明确");
   assert.ok(result.rejected.some((item) => item.reason === "creator_not_allowed"));
+});
+
+test("validateGrokFindings rejects forged status IDs whose snowflake is outside the window", () => {
+  const since = new Date("2026-07-15T10:11:25Z");
+  const until = new Date("2026-07-22T10:11:25Z");
+  const result = validateGrokFindings({
+    accounts: ["KillaXBT", "yijiangren"],
+    window: { since, until },
+    findings: [
+      {
+        creatorHandle: "KillaXBT",
+        url: "https://x.com/KillaXBT/status/2032435880990413008",
+        sourceText: "fabricated march post about BTC",
+        publishedAt: "2026-07-22T08:00:00Z",
+        symbols: ["BTC"],
+        direction: "LONG",
+        strategyMatch: "UNKNOWN",
+        strategyReason: "未明确"
+      },
+      {
+        creatorHandle: "yijiangren",
+        url: "https://x.com/yijiangren/status/2032407664977662366",
+        sourceText: "another fabricated march post about 美股",
+        publishedAt: "2026-07-22T09:00:00Z",
+        symbols: ["美股"],
+        direction: "WATCH",
+        strategyMatch: "UNKNOWN",
+        strategyReason: "未明确"
+      }
+    ]
+  });
+
+  assert.equal(result.accepted.length, 0);
+  assert.ok(result.rejected.every((item) => item.reason === "status_outside_window"));
+});
+
+test("validateGrokFindings rejects when publishedAt disagrees with snowflake time", () => {
+  const since = new Date("2026-07-15T00:00:00Z");
+  const until = new Date("2026-07-22T23:59:59Z");
+  const result = validateGrokFindings({
+    accounts: ["KillaXBT"],
+    window: { since, until },
+    findings: [
+      {
+        creatorHandle: "KillaXBT",
+        // real Jul 21 snowflake, but model claims a far publishedAt
+        url: "https://x.com/KillaXBT/status/2079562686011220198",
+        sourceText: "real post text about BTC levels",
+        publishedAt: "2026-07-15T01:00:00Z",
+        symbols: ["BTC"],
+        direction: "NONE",
+        strategyMatch: "UNKNOWN",
+        strategyReason: "未明确"
+      }
+    ]
+  });
+
+  assert.equal(result.accepted.length, 0);
+  assert.ok(result.rejected.some((item) => item.reason === "status_timestamp_mismatch"));
 });

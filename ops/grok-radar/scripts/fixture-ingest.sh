@@ -11,108 +11,96 @@ API_URL="${GROK_RADAR_API_URL:?set GROK_RADAR_API_URL}"
 SECRET="${GROK_INGEST_SECRET:?set GROK_INGEST_SECRET}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RESULT_TEMPLATE="$ROOT/fixtures/sample-result.json"
+WORKDIR="$(mktemp -d)"
+trap 'rm -rf "$WORKDIR"' EXIT
 
 if [[ ${#SECRET} -lt 32 ]]; then
   echo "GROK_INGEST_SECRET must be at least 32 characters" >&2
   exit 1
 fi
 
+sign() {
+  local ts="$1"
+  local body_file="$2"
+  python3 - "$SECRET" "$ts" "$body_file" <<'PY'
+import hashlib, hmac, sys
+secret, ts, path = sys.argv[1], sys.argv[2], sys.argv[3]
+body = open(path, "rb").read()
+print("sha256=" + hmac.new(secret.encode(), ts.encode() + b"\n" + body, hashlib.sha256).hexdigest())
+PY
+}
+
 RUN_ID="fixture-$(date -u +%Y%m%dT%H%M%SZ)-$(openssl rand -hex 4)"
 TS="$(date +%s)"
-RESERVE_BODY="$(printf '{"runId":"%s"}' "$RUN_ID")"
+printf '{"runId":"%s"}' "$RUN_ID" >"$WORKDIR/reserve.json"
 
 echo "==> reserve $RUN_ID"
-RESERVE_RESP="$(curl -sS -X POST "$API_URL/grok-runs/reserve" \
+curl -sS -X POST "$API_URL/grok-runs/reserve" \
   -H "Authorization: Bearer $SECRET" \
   -H "Content-Type: application/json" \
   -H "X-Grok-Timestamp: $TS" \
-  -d "$RESERVE_BODY")"
+  --data-binary @"$WORKDIR/reserve.json" | tee "$WORKDIR/reserve-resp.json" | python3 -m json.tool
 
-echo "$RESERVE_RESP" | python3 -m json.tool
+python3 - "$WORKDIR/reserve-resp.json" "$RESULT_TEMPLATE" "$RUN_ID" "$WORKDIR/ingest.json" <<'PY'
+import json, sys
+from datetime import datetime
 
-SINCE="$(echo "$RESERVE_RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin)["window"]["since"])')"
-UNTIL="$(echo "$RESERVE_RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin)["window"]["until"])')"
-ACCOUNT="$(echo "$RESERVE_RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin)["accounts"][0])')"
-MODEL="$(echo "$RESERVE_RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin)["model"])')"
-EFFORT="$(echo "$RESERVE_RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin)["reasoningEffort"])')"
-KEYWORDS="$(echo "$RESERVE_RESP" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["keywords"]))')"
-ACCOUNTS="$(echo "$RESERVE_RESP" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["accounts"]))')"
-STRATEGY_VERSION="$(echo "$RESERVE_RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin)["strategy"]["version"])')"
-WINDOW="$(echo "$RESERVE_RESP" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["window"]))')"
+reserve = json.loads(open(sys.argv[1]).read())
+template = json.loads(open(sys.argv[2]).read())
+run_id = sys.argv[3]
+out = sys.argv[4]
 
-MIDPOINT="$(python3 - <<PY
-from datetime import datetime, timezone
-since=datetime.fromisoformat("$SINCE".replace("Z","+00:00"))
-until=datetime.fromisoformat("$UNTIL".replace("Z","+00:00"))
-mid=since + (until-since)/2
-print(mid.isoformat().replace("+00:00","Z"))
-PY
-)"
+if "error" in reserve and "runId" not in reserve and "accounts" not in reserve:
+    raise SystemExit(f"reserve failed: {reserve}")
 
-INGEST_BODY="$(python3 - <<PY
-import json
-from pathlib import Path
-template=json.loads(Path("$RESULT_TEMPLATE").read_text())
-finding=template["result"]["findings"][0]
-finding["creatorHandle"]="$ACCOUNT"
-finding["url"]=f"https://x.com/$ACCOUNT/status/2079586556814164073"
-finding["publishedAt"]="$MIDPOINT"
-payload={
-  "run": {
-    "id": "$RUN_ID",
-    "model": "$MODEL",
-    "reasoningEffort": "$EFFORT",
-    "accounts": json.loads('''$ACCOUNTS'''),
-    "keywords": json.loads('''$KEYWORDS'''),
-    "window": json.loads('''$WINDOW'''),
-    "strategyVersion": int("$STRATEGY_VERSION"),
-  },
-  "result": template["result"],
-  "usage": template["usage"],
-  "stderr": template["stderr"],
-  "exitCode": template["exitCode"],
-  "raw": template["raw"],
+since = datetime.fromisoformat(reserve["window"]["since"].replace("Z", "+00:00"))
+until = datetime.fromisoformat(reserve["window"]["until"].replace("Z", "+00:00"))
+mid = since + (until - since) / 2
+account = reserve["accounts"][0]
+
+finding = template["result"]["findings"][0]
+finding["creatorHandle"] = account
+finding["url"] = f"https://x.com/{account}/status/2079586556814164073"
+finding["publishedAt"] = mid.isoformat().replace("+00:00", "Z")
+
+payload = {
+    "run": {
+        "id": run_id,
+        "model": reserve["model"],
+        "reasoningEffort": reserve["reasoningEffort"],
+        "accounts": reserve["accounts"],
+        "keywords": reserve["keywords"],
+        "window": reserve["window"],
+        "strategyVersion": reserve["strategy"]["version"],
+    },
+    "result": template["result"],
+    "usage": template["usage"],
+    "stderr": template["stderr"],
+    "exitCode": template["exitCode"],
+    "raw": template["raw"],
 }
-print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+open(out, "w", encoding="utf-8").write(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
 PY
-)"
-
-SIG="$(python3 - <<PY
-import hmac, hashlib, os
-secret=os.environ["GROK_INGEST_SECRET"]
-ts="$TS"
-body='''$INGEST_BODY'''
-print("sha256=" + hmac.new(secret.encode(), f"{ts}\\n{body}".encode(), hashlib.sha256).hexdigest())
-PY
-)"
 
 echo "==> ingest $RUN_ID"
-INGEST_RESP="$(curl -sS -X POST "$API_URL/grok-ingest" \
+SIG="$(sign "$TS" "$WORKDIR/ingest.json")"
+curl -sS -X POST "$API_URL/grok-ingest" \
   -H "Authorization: Bearer $SECRET" \
   -H "Content-Type: application/json" \
   -H "X-Grok-Timestamp: $TS" \
   -H "X-Grok-Signature: $SIG" \
   -H "Idempotency-Key: $RUN_ID" \
-  -d "$INGEST_BODY")"
-
-echo "$INGEST_RESP" | python3 -m json.tool
+  --data-binary @"$WORKDIR/ingest.json" | tee "$WORKDIR/ingest-resp.json" | python3 -m json.tool
 
 echo "==> re-ingest same runId (should be idempotent)"
 TS2="$(date +%s)"
-SIG2="$(python3 - <<PY
-import hmac, hashlib, os
-secret=os.environ["GROK_INGEST_SECRET"]
-ts="$TS2"
-body='''$INGEST_BODY'''
-print("sha256=" + hmac.new(secret.encode(), f"{ts}\\n{body}".encode(), hashlib.sha256).hexdigest())
-PY
-)"
+SIG2="$(sign "$TS2" "$WORKDIR/ingest.json")"
 curl -sS -X POST "$API_URL/grok-ingest" \
   -H "Authorization: Bearer $SECRET" \
   -H "Content-Type: application/json" \
   -H "X-Grok-Timestamp: $TS2" \
   -H "X-Grok-Signature: $SIG2" \
   -H "Idempotency-Key: $RUN_ID" \
-  -d "$INGEST_BODY" | python3 -m json.tool
+  --data-binary @"$WORKDIR/ingest.json" | python3 -m json.tool
 
 echo "Done. Open /trading-radar and confirm the fixture post + digest."

@@ -4,7 +4,7 @@
 
 1. `POST /grok-runs/reserve` 预占本周额度并拉取博主/关键词/窗口/策略
 2. 一次调用 `grok-4.5` + `--reasoning-effort medium` + `x_search`
-3. 本地校验 URL / 作者 / 时间 / evidence
+3. 本地校验 URL / Snowflake 时间 / 作者 / evidence，并要求 raw 中出现真实工具调用结果
 4. `POST /grok-ingest` HMAC 上传；失败进入 `pending-upload` 只重传不重跑模型
 
 服务器路径：
@@ -20,11 +20,15 @@ GROK_BIN="/home/grok-runner/.grok/bin/grok"
 GROK_RADAR_TIMEOUT="180"
 ```
 
-Timer（北京时间周二/周五 08:30）：
+Timer（北京时间每天 08:30 / 14:30 / 20:30；应用层默认每周最多 21 次）：
 
 ```ini
-OnCalendar=Tue,Fri *-*-* 00:30:00 UTC
+OnCalendar=*-*-* 00:30:00 UTC
+OnCalendar=*-*-* 06:30:00 UTC
+OnCalendar=*-*-* 12:30:00 UTC
 ```
+
+**不要在数据可信度修复验收完成前 `enable` timer。**
 
 常用命令：
 

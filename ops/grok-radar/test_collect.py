@@ -77,6 +77,45 @@ class CollectTests(unittest.TestCase):
         self.assertTrue(signature.startswith("sha256="))
         self.assertEqual(len(signature), len("sha256=") + 64)
 
+    def test_validate_findings_rejects_forged_snowflake_outside_window(self):
+        accepted, rejected = collect.validate_findings(
+            {
+                "findings": [
+                    {
+                        "creatorHandle": "KillaXBT",
+                        "url": "https://x.com/KillaXBT/status/2032435880990413008",
+                        "sourceText": "fabricated march post about BTC",
+                        "sourceTextKind": "verbatim_or_search_excerpt",
+                        "publishedAt": "2026-07-22T08:00:00Z",
+                        "language": "en",
+                        "postType": "original",
+                        "summary": "fake",
+                        "symbols": ["BTC"],
+                        "direction": "LONG",
+                        "entryPrice": "未明确",
+                        "entryPriceEvidence": "",
+                        "entryTiming": "未明确",
+                        "entryTimingEvidence": "",
+                        "invalidation": "未明确",
+                        "invalidationEvidence": "",
+                        "strategyMatch": "UNKNOWN",
+                        "strategyReason": "未明确",
+                    }
+                ]
+            },
+            accounts=["KillaXBT"],
+            window={"since": "2026-07-15T10:11:25Z", "until": "2026-07-22T10:11:25Z"},
+        )
+        self.assertEqual(accepted, [])
+        self.assertTrue(all(item["reason"] == "status_outside_window" for item in rejected))
+
+    def test_inspect_tool_evidence_rejects_thought_only(self):
+        evidence = collect.inspect_tool_evidence(
+            {"num_turns": 1, "thought": "I will use x_keyword_search", "text": "{}"}
+        )
+        self.assertFalse(evidence["verified"])
+        self.assertEqual(evidence["reason"], "x_search_not_executed")
+
 
 if __name__ == "__main__":
     unittest.main()

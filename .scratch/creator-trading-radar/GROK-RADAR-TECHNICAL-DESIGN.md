@@ -13,13 +13,15 @@ Decision scope: 本文经确认后，替代现有 PRD/OPERATIONS 中“官方 X 
 
 - 数据发现模型：`grok-4.5`。
 - reasoning effort：`medium`。
-- 每个 xAI 周额度窗口最多发起两次模型调用；失败调用也占一次。
+- 每个 xAI 周额度窗口最多发起约 21 次模型调用（应用层硬限制，按约 2%/次估算）；失败调用也占一次。
 - 最多四个启用中的博主，一次模型调用合并处理全部博主，不按博主拆成多次调用。
 - 第一版关键词固定为“美股”和“BTC”。
 - Supabase Postgres 是唯一线上业务数据库。
 - VPS 只保存运行和待上传副本，不作为页面查询的数据源。
 - 不使用官方 X Timeline API，也不把 Cloudflare、VPS 文件和 Supabase 做成三个业务数据源。
 - 不自动交易；所有内容必须保留原推 URL，并明确标记为 Grok 语义发现结果。
+- URL status ID 的 Snowflake 时间必须落在搜索窗口；与 `publishedAt` 偏差过大则拒绝。
+- 本轮 raw 必须能证明发生了真实 `x_search`/`x_keyword_search` 工具调用结果，不能只凭模型自述。
 
 当前已配置两个博主：
 
@@ -112,20 +114,21 @@ flowchart LR
 
 ### 4.1 调度时间
 
-默认按北京时间执行：
+默认按北京时间每天执行三次：
 
-- 周二 08:30；
-- 周五 08:30。
+- 08:30；
+- 14:30；
+- 20:30。
 
 VPS 使用 UTC 时，对应 systemd timer：
 
 ```ini
-OnCalendar=Tue,Fri *-*-* 00:30:00 UTC
+OnCalendar=*-*-* 00:30:00 UTC
+OnCalendar=*-*-* 06:30:00 UTC
+OnCalendar=*-*-* 12:30:00 UTC
 Persistent=true
 RandomizedDelaySec=5min
 ```
-
-该节奏将一周分成约三天和四天两个窗口，并落在美股收盘以后；BTC 内容同时覆盖。
 
 ### 4.2 周额度硬限制
 
@@ -135,17 +138,17 @@ RandomizedDelaySec=5min
 2. 调用 `POST /api/trading-radar/grok-runs/reserve`。
 3. API 根据 xAI 周重置锚点计算当前额度窗口。
 4. 在 Serializable transaction 中统计该窗口已经预占/执行的 run。
-5. 少于 2 次才创建 `RESERVED` 记录并返回运行配置。
-6. 达到 2 次返回 `429 weekly_run_limit_reached`，VPS 不启动 Grok。
+5. 少于 21 次才创建 `RESERVED` 记录并返回运行配置。
+6. 达到 21 次返回 `429 weekly_run_limit_reached`，VPS 不启动 Grok。
 
 周重置锚点通过环境变量配置，例如：
 
 ```dotenv
 GROK_WEEKLY_RESET_ANCHOR="2026-07-29T03:25:00Z"
-GROK_RADAR_MAX_RUNS_PER_WINDOW="2"
+GROK_RADAR_MAX_RUNS_PER_WINDOW="21"
 ```
 
-当前截图中的重置时间是北京时间 7 月 29 日 11:25，即 UTC 03:25。后续每七天滚动一个窗口。
+页面上的 `used/limit` 是应用自建 reservation 次数，不是 xAI 官方额度百分比。当前截图中的重置时间是北京时间 7 月 29 日 11:25，即 UTC 03:25。后续每七天滚动一个窗口。
 
 以下状态都计入两次上限：
 
@@ -596,7 +599,7 @@ GROK_RADAR_TIMEOUT="180"
 TRADING_RADAR_SOURCE="grok-cli"
 GROK_INGEST_SECRET="<same-secret>"
 GROK_RADAR_MAX_CREATORS="4"
-GROK_RADAR_MAX_RUNS_PER_WINDOW="2"
+GROK_RADAR_MAX_RUNS_PER_WINDOW="21"
 GROK_WEEKLY_RESET_ANCHOR="2026-07-29T03:25:00Z"
 GROK_RADAR_KEYWORDS="美股,BTC"
 ```

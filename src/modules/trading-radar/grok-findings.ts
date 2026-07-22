@@ -1,4 +1,9 @@
 import { handlesMatch, parseXStatusUrl } from "./grok-status-url";
+import {
+  decodeXStatusTimestamp,
+  isTimestampWithinWindow,
+  timestampsAgree
+} from "./x-snowflake";
 
 export type GrokFindingDirection = "LONG" | "SHORT" | "WATCH" | "NONE";
 export type GrokStrategyMatch = "MATCH" | "CONFLICT" | "UNKNOWN";
@@ -128,6 +133,17 @@ export function validateGrokFindings(input: {
       continue;
     }
 
+    const statusCreatedAt = decodeXStatusTimestamp(parsedUrl.statusId);
+    if (!statusCreatedAt) {
+      rejected.push({ reason: "invalid_status_id", finding });
+      continue;
+    }
+
+    if (!isTimestampWithinWindow(statusCreatedAt, input.window)) {
+      rejected.push({ reason: "status_outside_window", finding });
+      continue;
+    }
+
     const sourceText = asString(row.sourceText);
     if (!sourceText) {
       rejected.push({ reason: "missing_source_text", finding });
@@ -141,8 +157,8 @@ export function validateGrokFindings(input: {
       continue;
     }
 
-    if (publishedAt.getTime() < input.window.since.getTime() || publishedAt.getTime() > input.window.until.getTime()) {
-      rejected.push({ reason: "published_at_outside_window", finding });
+    if (!timestampsAgree(statusCreatedAt, publishedAt)) {
+      rejected.push({ reason: "status_timestamp_mismatch", finding });
       continue;
     }
 
@@ -176,7 +192,8 @@ export function validateGrokFindings(input: {
       externalId: parsedUrl.statusId,
       sourceText,
       sourceTextKind: asString(row.sourceTextKind, "verbatim_or_search_excerpt") || "verbatim_or_search_excerpt",
-      publishedAt,
+      // Prefer deterministic snowflake time over model-declared publishedAt.
+      publishedAt: statusCreatedAt,
       language: asString(row.language, "und") || "und",
       postType: asString(row.postType, "original") || "original",
       summary: asString(row.summary),

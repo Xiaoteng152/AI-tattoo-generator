@@ -32,22 +32,29 @@ export function computeSearchWindow(input: {
   return { since, until: now };
 }
 
+/** Daily slots in UTC: 00:30 / 06:30 / 12:30 ≈ Asia/Shanghai 08:30 / 14:30 / 20:30 */
+export const GROK_DAILY_UTC_SLOTS = [
+  { hour: 0, minute: 30 },
+  { hour: 6, minute: 30 },
+  { hour: 12, minute: 30 }
+] as const;
+
 export function nextScheduledRunAt(now = new Date()) {
-  // Tue/Fri 00:30 UTC ≈ 08:30 Asia/Shanghai
   const candidates: Date[] = [];
-  for (let dayOffset = 0; dayOffset < 14; dayOffset += 1) {
-    const candidate = new Date(Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate() + dayOffset,
-      0,
-      30,
-      0,
-      0
-    ));
-    const weekday = candidate.getUTCDay();
-    if ((weekday === 2 || weekday === 5) && candidate.getTime() > now.getTime()) {
-      candidates.push(candidate);
+  for (let dayOffset = 0; dayOffset < 3; dayOffset += 1) {
+    for (const slot of GROK_DAILY_UTC_SLOTS) {
+      const candidate = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + dayOffset,
+        slot.hour,
+        slot.minute,
+        0,
+        0
+      ));
+      if (candidate.getTime() > now.getTime()) {
+        candidates.push(candidate);
+      }
     }
   }
   return candidates[0] ?? null;

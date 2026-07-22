@@ -10,6 +10,7 @@ import {
   DEFAULT_MAX_FINDINGS_PER_ACCOUNT
 } from "./grok-config";
 import { validateGrokFindings, type AcceptedGrokFinding } from "./grok-findings";
+import { inspectGrokToolEvidence } from "./grok-tool-evidence";
 import { normalizeTradingDigest } from "./trading-digest";
 import { deliverTradingDigestToTelegram } from "./telegram-delivery";
 import { shouldDeliverTradingDigest } from "./telegram-message";
@@ -165,6 +166,42 @@ export async function ingestGrokRun(
   });
 
   try {
+    const toolEvidence = inspectGrokToolEvidence({
+      raw: payload.raw,
+      usage: payload.usage,
+      result: payload.result,
+      stderr: payload.stderr,
+      exitCode: payload.exitCode
+    });
+
+    if (!toolEvidence.verified) {
+      const findingCount = Array.isArray(payload.result?.findings)
+        ? payload.result.findings.length
+        : 0;
+      const result: GrokIngestResult = {
+        ok: true,
+        runId,
+        accepted: 0,
+        duplicates: 0,
+        rejected: findingCount,
+        digestId: null
+      };
+      await prisma.grokRadarRun.update({
+        where: { id: runId },
+        data: {
+          status: "FAILED",
+          error: toolEvidence.reason,
+          ingestionResult: {
+            ...result,
+            toolEvidence,
+            rejectedDetails: [toolEvidence.reason ?? "x_search_not_executed"]
+          },
+          completedAt: new Date()
+        }
+      });
+      return result;
+    }
+
     const creators = await prisma.watchedCreator.findMany({
       where: {
         platform: "x",
@@ -277,56 +314,60 @@ export async function ingestGrokRun(
       });
     }
 
-    const digestPosts = await prisma.creatorRawItem.findMany({
-      where: { id: { in: persistedIds } }
-    });
-    const digest = normalizeTradingDigest(
-      {
-        summary: Array.isArray(payload.result?.digestSummary) ? payload.result?.digestSummary : [],
-        signals: signalCandidates
-      },
-      digestPosts.map((item) => ({
-        id: item.id,
-        text: item.body,
-        sourceUrl: item.sourceUrl
-      }))
-    );
-
+    let digestId: string | null = null;
     const sortedCreatorIds = [...creatorIds].sort();
     const sortedRawItemIds = [...persistedIds].sort();
-    const inputKey = buildGrokDigestInputKey({
-      runId,
-      creatorIds: sortedCreatorIds,
-      rawItemIds: sortedRawItemIds,
-      strategyVersion: reserved.strategyVersion
-    });
 
-    let digestId: string | null = null;
-    const existingDigest = await prisma.tradingDigest.findUnique({
-      where: { sourceGrokRunId: runId }
-    });
-
-    if (existingDigest) {
-      digestId = existingDigest.id;
-    } else {
-      const createdDigest = await prisma.tradingDigest.create({
-        data: {
-          inputKey,
-          creatorIds: sortedCreatorIds,
-          rawItemIds: sortedRawItemIds,
-          summary: digest.summary,
-          signals: digest.signals,
-          promptVersion: GROK_PROMPT_VERSION,
-          strategyId: "default",
-          strategyVersion: reserved.strategyVersion,
-          strategySnapshot: reserved.strategySnapshot,
-          sourceGrokRunId: runId
-        }
+    // Do not invent a digest from rejected/forged findings.
+    if (accepted + duplicates > 0 && persistedIds.length > 0) {
+      const digestPosts = await prisma.creatorRawItem.findMany({
+        where: { id: { in: persistedIds } }
       });
-      digestId = createdDigest.id;
+      const digest = normalizeTradingDigest(
+        {
+          summary: Array.isArray(payload.result?.digestSummary) ? payload.result?.digestSummary : [],
+          signals: signalCandidates
+        },
+        digestPosts.map((item) => ({
+          id: item.id,
+          text: item.body,
+          sourceUrl: item.sourceUrl
+        }))
+      );
 
-      if (shouldDeliverTradingDigest({ trigger: "sync", isInitialImport: false })) {
-        await deliverTradingDigestToTelegram(createdDigest.id, digest).catch(() => undefined);
+      const inputKey = buildGrokDigestInputKey({
+        runId,
+        creatorIds: sortedCreatorIds,
+        rawItemIds: sortedRawItemIds,
+        strategyVersion: reserved.strategyVersion
+      });
+
+      const existingDigest = await prisma.tradingDigest.findUnique({
+        where: { sourceGrokRunId: runId }
+      });
+
+      if (existingDigest) {
+        digestId = existingDigest.id;
+      } else {
+        const createdDigest = await prisma.tradingDigest.create({
+          data: {
+            inputKey,
+            creatorIds: sortedCreatorIds,
+            rawItemIds: sortedRawItemIds,
+            summary: digest.summary,
+            signals: digest.signals,
+            promptVersion: GROK_PROMPT_VERSION,
+            strategyId: "default",
+            strategyVersion: reserved.strategyVersion,
+            strategySnapshot: reserved.strategySnapshot,
+            sourceGrokRunId: runId
+          }
+        });
+        digestId = createdDigest.id;
+
+        if (shouldDeliverTradingDigest({ trigger: "sync", isInitialImport: false })) {
+          await deliverTradingDigestToTelegram(createdDigest.id, digest).catch(() => undefined);
+        }
       }
     }
 
@@ -345,6 +386,7 @@ export async function ingestGrokRun(
         status: "SUCCEEDED",
         ingestionResult: {
           ...result,
+          toolEvidence,
           rejectedDetails: validation.rejected.map((item) => item.reason)
         },
         completedAt: new Date(),

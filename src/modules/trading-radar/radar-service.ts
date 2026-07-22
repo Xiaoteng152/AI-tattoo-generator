@@ -129,7 +129,7 @@ export async function getGrokRadarStatus(now = new Date()) {
     nextRunAt: nextScheduledRunAt(now)?.toISOString() ?? null,
     quota: {
       used,
-      limit: Number(process.env.GROK_RADAR_MAX_RUNS_PER_WINDOW ?? 2),
+      limit: Number(process.env.GROK_RADAR_MAX_RUNS_PER_WINDOW ?? 21),
       resetsAt: quota.resetsAt.toISOString()
     }
   };

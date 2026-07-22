@@ -161,6 +161,69 @@ def normalize_evidence(value: str) -> str:
     return re.sub(r"[^a-z0-9\u3400-\u9fff]+", "", value.lower())
 
 
+X_SNOWFLAKE_EPOCH_MS = 1_288_834_974_657
+STATUS_TIMESTAMP_TOLERANCE_MS = 24 * 60 * 60 * 1000
+
+
+def decode_status_timestamp(status_id: str) -> datetime | None:
+    if not status_id.isdigit():
+        return None
+    try:
+        created_ms = (int(status_id) >> 22) + X_SNOWFLAKE_EPOCH_MS
+        return datetime.fromtimestamp(created_ms / 1000, tz=timezone.utc)
+    except (OverflowError, ValueError, OSError):
+        return None
+
+
+def inspect_tool_evidence(raw: Any) -> dict[str, Any]:
+    tool_names: set[str] = set()
+    has_result = False
+
+    def walk(node: Any, depth: int = 0) -> None:
+        nonlocal has_result
+        if depth > 12 or node is None:
+            return
+        if isinstance(node, list):
+            for item in node:
+                walk(item, depth + 1)
+            return
+        if not isinstance(node, dict):
+            return
+        for key, value in node.items():
+            if isinstance(value, str) and re.search(r"(name|tool)", key, re.I):
+                if re.search(r"x[_-]?search|x[_-]?keyword[_-]?search", value, re.I):
+                    tool_names.add(value)
+            if key == "name" and isinstance(value, str) and re.search(
+                r"x[_-]?search|x[_-]?keyword[_-]?search", value, re.I
+            ):
+                tool_names.add(value)
+            type_value = str(node.get("type") or "").lower()
+            if (
+                "tool_result" in type_value
+                or "tool-result" in type_value
+                or "function_call_output" in type_value
+                or type_value == "tool"
+                or "tool_call_id" in node
+                or "toolCallId" in node
+            ):
+                has_result = True
+            if key == "tool_results" and isinstance(value, list) and value:
+                has_result = True
+            walk(value, depth + 1)
+
+    walk(raw)
+    names = sorted(tool_names)
+    if names and has_result:
+        return {"verified": True, "toolNames": names, "reason": None}
+    if names and not has_result:
+        return {
+            "verified": False,
+            "toolNames": names,
+            "reason": "x_search_tool_named_without_result",
+        }
+    return {"verified": False, "toolNames": names, "reason": "x_search_not_executed"}
+
+
 def evidence_bound(value: Any, evidence: Any, source_text: str) -> str:
     text = str(value or "").strip() or "未明确"
     if text == "未明确":
@@ -211,6 +274,14 @@ def validate_findings(
             rejected.append({"reason": "url_handle_mismatch", "finding": finding})
             continue
 
+        status_created_at = decode_status_timestamp(status_id)
+        if status_created_at is None:
+            rejected.append({"reason": "invalid_status_id", "finding": finding})
+            continue
+        if status_created_at < since or status_created_at > until:
+            rejected.append({"reason": "status_outside_window", "finding": finding})
+            continue
+
         source_text = str(finding.get("sourceText") or "").strip()
         if not source_text:
             rejected.append({"reason": "missing_source_text", "finding": finding})
@@ -225,8 +296,8 @@ def validate_findings(
         except ValueError:
             rejected.append({"reason": "missing_published_at", "finding": finding})
             continue
-        if published_at < since or published_at > until:
-            rejected.append({"reason": "published_at_outside_window", "finding": finding})
+        if abs((status_created_at - published_at).total_seconds() * 1000) > STATUS_TIMESTAMP_TOLERANCE_MS:
+            rejected.append({"reason": "status_timestamp_mismatch", "finding": finding})
             continue
 
         if status_id in seen_ids:
@@ -253,7 +324,7 @@ def validate_findings(
                 "url": f"https://x.com/{url_handle}/status/{status_id}",
                 "sourceText": source_text,
                 "sourceTextKind": str(finding.get("sourceTextKind") or "verbatim_or_search_excerpt"),
-                "publishedAt": published_raw,
+                "publishedAt": iso(status_created_at),
                 "language": str(finding.get("language") or "und"),
                 "postType": str(finding.get("postType") or "original"),
                 "summary": str(finding.get("summary") or "")[:200],
@@ -502,6 +573,26 @@ def main() -> int:
 
         try:
             cli_payload = json.loads(envelope["stdout"])
+            tool_evidence = inspect_tool_evidence(cli_payload)
+            if not tool_evidence["verified"]:
+                print(
+                    json.dumps(
+                        {
+                            "ok": False,
+                            "run_id": run_id,
+                            "error": tool_evidence["reason"],
+                            "tool_evidence": tool_evidence,
+                            "raw": str(raw_path),
+                        }
+                    ),
+                    file=sys.stderr,
+                )
+                # Keep raw; do not upload fabricated findings.
+                atomic_json(
+                    ROOT / "rejected" / f"{run_id}.json",
+                    {"run_id": run_id, "rejected": [tool_evidence]},
+                )
+                return 1
             model_payload = extract_model_payload(cli_payload["text"])
             accepted, rejected = validate_findings(
                 model_payload,

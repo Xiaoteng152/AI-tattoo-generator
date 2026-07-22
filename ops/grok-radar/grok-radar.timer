@@ -1,8 +1,11 @@
 [Unit]
-Description=Run Grok X trading discovery collector twice weekly
+Description=Run Grok X trading discovery collector three times daily
 
 [Timer]
-OnCalendar=Tue,Fri *-*-* 00:30:00 UTC
+# Asia/Shanghai 08:30 / 14:30 / 20:30
+OnCalendar=*-*-* 00:30:00 UTC
+OnCalendar=*-*-* 06:30:00 UTC
+OnCalendar=*-*-* 12:30:00 UTC
 Persistent=true
 RandomizedDelaySec=5min
 Unit=grok-radar.service
