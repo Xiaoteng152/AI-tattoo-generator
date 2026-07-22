@@ -1,16 +1,31 @@
 const HANDLE_PATTERN = /^[A-Za-z0-9_]{1,15}$/;
 
-function normalizeHandle(value: string) {
-  const handle = value.replace(/^@/, "").trim();
+export type ParsedCreatorHandle = {
+  handle: string;
+  displayHandle: string;
+};
 
-  if (!HANDLE_PATTERN.test(handle)) {
+function stripAt(value: string) {
+  return value.replace(/^@/, "").trim();
+}
+
+function toParsedHandle(raw: string): ParsedCreatorHandle {
+  const displayHandle = stripAt(raw);
+  if (!HANDLE_PATTERN.test(displayHandle)) {
     throw new Error("Invalid X creator handle");
   }
 
-  return handle.toLowerCase();
+  return {
+    handle: displayHandle.toLowerCase(),
+    displayHandle
+  };
 }
 
 export function parseXCreatorHandle(input: string) {
+  return parseXCreatorInput(input).handle;
+}
+
+export function parseXCreatorInput(input: string): ParsedCreatorHandle {
   const value = input.trim();
 
   if (!value) {
@@ -18,7 +33,7 @@ export function parseXCreatorHandle(input: string) {
   }
 
   if (value.startsWith("@") || HANDLE_PATTERN.test(value)) {
-    return normalizeHandle(value);
+    return toParsedHandle(value);
   }
 
   const candidate = /^https?:\/\//i.test(value) ? value : `https://${value}`;
@@ -30,7 +45,12 @@ export function parseXCreatorHandle(input: string) {
     throw new Error("Invalid X profile URL");
   }
 
-  if (url.hostname !== "x.com" && url.hostname !== "www.x.com" && url.hostname !== "twitter.com" && url.hostname !== "www.twitter.com") {
+  if (
+    url.hostname !== "x.com" &&
+    url.hostname !== "www.x.com" &&
+    url.hostname !== "twitter.com" &&
+    url.hostname !== "www.twitter.com"
+  ) {
     throw new Error("Invalid X profile URL");
   }
 
@@ -39,5 +59,5 @@ export function parseXCreatorHandle(input: string) {
     throw new Error("X profile URL must point to a creator profile");
   }
 
-  return normalizeHandle(parts[0]);
+  return toParsedHandle(parts[0]);
 }

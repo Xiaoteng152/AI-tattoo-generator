@@ -148,7 +148,7 @@ export async function ingestGrokRun(
     exitCode: payload.exitCode ?? null,
     raw: payload.raw ?? null,
     receivedAt: new Date().toISOString()
-  };
+  } as Prisma.InputJsonValue;
 
   // Phase A: persist raw evidence first.
   await prisma.grokRadarRun.update({
@@ -156,7 +156,10 @@ export async function ingestGrokRun(
     data: {
       status: reserved.status === "SUCCEEDED" ? reserved.status : "RUNNING",
       rawPayload,
-      usage: (payload.usage as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+      usage:
+        payload.usage === undefined || payload.usage === null
+          ? Prisma.JsonNull
+          : (payload.usage as Prisma.InputJsonValue),
       error: null
     }
   });

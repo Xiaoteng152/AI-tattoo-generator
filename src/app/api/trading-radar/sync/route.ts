@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hasTradingRadarSession, hasValidCronSecret } from "@/modules/trading-radar/route-auth";
 import { summarizeCreatorSyncResults, syncWatchedCreators } from "@/modules/trading-radar/creator-sync";
+import { isGrokCliSource } from "@/modules/trading-radar/grok-config";
+import { nextScheduledRunAt } from "@/modules/trading-radar/grok-quota";
 
 export const runtime = "nodejs";
 
@@ -11,6 +13,21 @@ async function runSync(request: Request, body: unknown) {
   if (!hasValidCronSecret(request) && !(await hasTradingRadarSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  if (isGrokCliSource()) {
+    const nextRunAt = nextScheduledRunAt()?.toISOString() ?? null;
+    return NextResponse.json(
+      {
+        status: "disabled",
+        sourceMode: "grok-cli",
+        error: "Grok 模式下不支持立即刷新，请等待计划采集",
+        nextRunAt,
+        syncedAt: new Date().toISOString()
+      },
+      { status: 409 }
+    );
+  }
+
   const parsed = syncSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid creator selection" }, { status: 400 });

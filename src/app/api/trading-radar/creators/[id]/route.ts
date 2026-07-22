@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
 import { hasTradingRadarSession } from "@/modules/trading-radar/route-auth";
+import { CreatorLimitError, setWatchedCreatorEnabled } from "@/modules/trading-radar/radar-service";
 
 const patchSchema = z.object({ enabled: z.boolean() });
 
@@ -14,5 +14,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "Invalid creator state" }, { status: 400 });
   }
   const { id } = await context.params;
-  return NextResponse.json(await prisma.watchedCreator.update({ where: { id }, data: parsed.data }));
+  try {
+    return NextResponse.json(await setWatchedCreatorEnabled(id, parsed.data.enabled));
+  } catch (error) {
+    if (error instanceof CreatorLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to update creator" },
+      { status: 500 }
+    );
+  }
 }

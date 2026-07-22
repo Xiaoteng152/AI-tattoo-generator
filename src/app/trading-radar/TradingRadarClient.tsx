@@ -24,7 +24,23 @@ type CreatorPost = {
   postType: string;
   isInitialImport: boolean;
   readAt: string | null;
+  payload?: {
+    captureMethod?: string;
+    sourceTextKind?: string;
+    requiresSourceVerification?: boolean;
+  } | null;
   creator: Creator;
+};
+
+type GrokStatus = {
+  model: string;
+  reasoningEffort: string;
+  lastRunAt: string | null;
+  lastRunStatus: string | null;
+  lastSucceededAt: string | null;
+  lastError: string | null;
+  nextRunAt: string | null;
+  quota: { used: number; limit: number; resetsAt: string };
 };
 
 type TradingSignal = {
@@ -47,6 +63,9 @@ type DigestResult = {
 };
 
 type RadarSnapshot = {
+  sourceMode?: "grok-cli" | "x-api";
+  grokStatus?: GrokStatus | null;
+  maxCreators?: number;
   creators: Creator[];
   selectedIds: string[];
   posts: CreatorPost[];
@@ -139,15 +158,7 @@ export function TradingRadarClient() {
     if (!nextIds.length) return;
     setError(null);
     try {
-      const data = await loadSnapshot(nextIds);
-      if (data.integrations.aiConfigured && data.posts.some((post) => post.readAt === null)) {
-        const digest = await jsonRequest<{ result: DigestResult | null }>("/api/trading-radar/digest", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ creatorIds: nextIds })
-        });
-        if (digest.result) setSnapshot((current) => (current ? { ...current, latestDigest: digest.result } : current));
-      }
+      await loadSnapshot(nextIds);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "筛选失败");
     }
@@ -191,6 +202,21 @@ export function TradingRadarClient() {
   }
 
   async function syncNow() {
+    if (snapshot?.sourceMode === "grok-cli") {
+      const nextRun = snapshot.grokStatus?.nextRunAt
+        ? new Intl.DateTimeFormat("zh-CN", {
+            weekday: "short",
+            month: "numeric",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Asia/Shanghai"
+          }).format(new Date(snapshot.grokStatus.nextRunAt))
+        : "计划时间待定";
+      setError(`Grok 模式不支持立即刷新。下次采集：${nextRun}`);
+      return;
+    }
+
     setIsBusy(true);
     setError(null);
     try {
@@ -261,6 +287,11 @@ export function TradingRadarClient() {
   }
 
   async function analyzeAgain() {
+    if (snapshot?.sourceMode === "grok-cli") {
+      setError("Grok 模式下摘要由采集写入，不支持重新分析");
+      return;
+    }
+
     setIsBusy(true);
     setError(null);
     try {
@@ -281,9 +312,35 @@ export function TradingRadarClient() {
     return <p className={styles.loading}>正在加载交易雷达…</p>;
   }
 
+  const isGrokMode = snapshot.sourceMode === "grok-cli";
+  const maxCreators = snapshot.maxCreators ?? 4;
+  const enabledCount = snapshot.creators.filter((creator) => creator.enabled).length;
+  const atCreatorLimit = enabledCount >= maxCreators;
+  const grok = snapshot.grokStatus;
+  const nextRunLabel = grok?.nextRunAt
+    ? new Intl.DateTimeFormat("zh-CN", {
+        weekday: "short",
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Shanghai"
+      }).format(new Date(grok.nextRunAt))
+    : null;
+
   return (
     <>
       {error ? <div className={styles.errorBanner}>{error}</div> : null}
+      {isGrokMode && grok ? (
+        <div className={styles.grokStatusBar}>
+          <span>本周 Grok {grok.quota.used}/{grok.quota.limit}</span>
+          <span>下次采集：{nextRunLabel ?? "待定"}</span>
+          <span>最近成功：{relativeTime(grok.lastSucceededAt)}</span>
+          {grok.lastRunStatus === "FAILED" && grok.lastError ? (
+            <span className={styles.grokError}>最近失败：{grok.lastError}</span>
+          ) : null}
+        </div>
+      ) : null}
       <section className={styles.workspace}>
         <aside className={styles.leftPanel}>
           <div className={styles.panelHead}>
@@ -291,18 +348,20 @@ export function TradingRadarClient() {
               <span className={styles.kicker}>Watchlist</span>
               <h2>关注博主</h2>
             </div>
-            <span className={styles.count}>{snapshot.creators.length}</span>
+            <span className={styles.count}>{enabledCount}/{maxCreators}</span>
           </div>
 
           <form className={styles.addForm} onSubmit={addCreator}>
             <input
               aria-label="X 博主 handle 或主页链接"
+              disabled={atCreatorLimit}
               onChange={(event) => setCreatorInput(event.target.value)}
               placeholder="@handle 或 X 主页链接"
               value={creatorInput}
             />
-            <button disabled={isBusy} type="submit">添加</button>
+            <button disabled={isBusy || atCreatorLimit} type="submit">添加</button>
           </form>
+          {atCreatorLimit ? <p className={styles.limitHint}>已达 {maxCreators} 个启用博主上限，请先停用后再添加。</p> : null}
 
           <div className={styles.creatorList}>
             {snapshot.creators.map((creator) => {
@@ -335,7 +394,7 @@ export function TradingRadarClient() {
                   </span>
                   <button
                     className={styles.creatorToggle}
-                    disabled={isBusy}
+                    disabled={isBusy || (!creator.enabled && atCreatorLimit)}
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
@@ -397,6 +456,12 @@ export function TradingRadarClient() {
                   <strong>@{post.creator.handle}</strong>
                   <span>{post.postType === "quote" ? "引用" : "原创"}</span>
                   {post.isInitialImport ? <span>首次导入</span> : null}
+                  {post.payload?.captureMethod === "grok_cli_x_search" ? (
+                    <span className={styles.sourceBadge}>Grok AI 搜索采集</span>
+                  ) : null}
+                  {post.payload?.sourceTextKind === "verbatim_or_search_excerpt" ? (
+                    <span className={styles.excerptBadge}>搜索摘录</span>
+                  ) : null}
                   <time>{postTime(post.publishedAt)}</time>
                 </div>
                 <p>{post.body}</p>
@@ -417,12 +482,18 @@ export function TradingRadarClient() {
           </div>
 
           <div className={styles.integrationRow}>
-            <span className={snapshot.integrations.xConfigured ? styles.integrationOk : styles.integrationOff}>X API</span>
-            <span className={snapshot.integrations.aiConfigured ? styles.integrationOk : styles.integrationOff}>AI</span>
+            {isGrokMode ? (
+              <span className={styles.integrationOk}>Grok 4.5 / medium</span>
+            ) : (
+              <>
+                <span className={snapshot.integrations.xConfigured ? styles.integrationOk : styles.integrationOff}>X API</span>
+                <span className={snapshot.integrations.aiConfigured ? styles.integrationOk : styles.integrationOff}>AI</span>
+              </>
+            )}
             <span className={snapshot.integrations.telegramConfigured ? styles.integrationOk : styles.integrationOff}>Telegram</span>
           </div>
 
-          {!snapshot.integrations.aiConfigured ? (
+          {!isGrokMode && !snapshot.integrations.aiConfigured ? (
             <div className={styles.notice}>AI 尚未配置。设置 OPENAI_API_KEY 后才会生成交易信号，不使用规则兜底。</div>
           ) : null}
 
@@ -433,6 +504,11 @@ export function TradingRadarClient() {
                   <h3>核心观点</h3>
                   <time>{relativeTime(snapshot.latestDigest.createdAt)}</time>
                 </div>
+                {isGrokMode ? (
+                  <p className={styles.digestMeta}>
+                    Prompt trading-radar-grok-v1 · 策略 v{snapshot.latestDigest.strategyVersion ?? snapshot.strategy.version}
+                  </p>
+                ) : null}
                 <ol>
                   {snapshot.latestDigest.digest.summary.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}
                 </ol>
@@ -465,9 +541,13 @@ export function TradingRadarClient() {
             <div className={styles.emptyDigest}>同步到推文后，这里会展示最多 3 条摘要和 3 个有原文证据的信号。</div>
           )}
 
-          <button className={styles.analyzeButton} disabled={isBusy || !snapshot.integrations.aiConfigured || !selectedIds.length} onClick={analyzeAgain} type="button">
-            {isBusy ? "处理中…" : "重新分析"}
-          </button>
+          {!isGrokMode ? (
+            <button className={styles.analyzeButton} disabled={isBusy || !snapshot.integrations.aiConfigured || !selectedIds.length} onClick={analyzeAgain} type="button">
+              {isBusy ? "处理中…" : "重新分析"}
+            </button>
+          ) : (
+            <p className={styles.digestMeta}>摘要由每周两次 Grok 采集写入，切换博主不会触发模型调用。</p>
+          )}
           <p className={styles.disclaimer}>仅整理博主公开表达，不构成投资建议或自动交易指令。</p>
         </aside>
       </section>

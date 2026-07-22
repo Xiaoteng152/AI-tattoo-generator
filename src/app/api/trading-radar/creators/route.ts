@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { addWatchedCreator } from "@/modules/trading-radar/radar-service";
+import { addWatchedCreator, CreatorLimitError } from "@/modules/trading-radar/radar-service";
 import { hasTradingRadarSession } from "@/modules/trading-radar/route-auth";
 
 export const runtime = "nodejs";
@@ -20,8 +20,15 @@ export async function POST(request: Request) {
   try {
     return NextResponse.json(await addWatchedCreator(parsed.data.input), { status: 201 });
   } catch (error) {
+    if (error instanceof CreatorLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     const message = error instanceof Error ? error.message : "Failed to add creator";
-    const status = /not found|invalid|profile|handle/i.test(message) ? 400 : /X API 未配置/.test(message) ? 503 : 502;
+    const status = /not found|invalid|profile|handle/i.test(message)
+      ? 400
+      : /X API 未配置/.test(message)
+        ? 503
+        : 502;
     return NextResponse.json({ error: message }, { status });
   }
 }
