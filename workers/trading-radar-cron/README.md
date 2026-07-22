@@ -22,7 +22,7 @@ npx wrangler deploy
 在 `workers/trading-radar-cron/.dev.vars` 写入以下内容。该文件已被 Git 忽略：
 
 ```dotenv
-TRADING_RADAR_SYNC_URL="http://localhost:3000/api/trading-radar/sync"
+TRADING_RADAR_SYNC_URL="http://localhost:3003/api/trading-radar/sync"
 CRON_SECRET="your-local-secret"
 ```
 

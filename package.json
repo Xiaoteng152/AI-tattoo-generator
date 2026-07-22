@@ -6,10 +6,10 @@
     "doc": "docs"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3003",
     "build": "next build",
     "postinstall": "prisma generate",
-    "start": "next start",
+    "start": "next start -p 3003",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit && npm run typecheck:worker",
     "typecheck:worker": "tsc --noEmit -p workers/trading-radar-cron/tsconfig.json",
@@ -32,6 +32,7 @@
   "license": "ISC",
   "description": "Growth Automation Harness MVP：以 AI tattoo generator 为演示垂类，聚合 Reddit/X/Etsy 信号并生成 SEO brief 与 DeepSearch 研究报告。",
   "dependencies": {
+    "@auth/core": "0.41.3",
     "@prisma/client": "^6.19.3",
     "bullmq": "^5.76.8",
     "ioredis": "^5.10.1",

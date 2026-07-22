@@ -32,7 +32,7 @@ export function AuthConfigNotice({
           </ul>
           <p className="ds-auth-config-lead">
             Redirect URI 必须为{" "}
-            <code>http://localhost:3000/api/auth/callback/google</code>
+            <code>http://localhost:3003/api/auth/callback/google</code>
           </p>
         </>
       ) : null}
