@@ -1,0 +1,36 @@
+{
+  "result": {
+    "findings": [
+      {
+        "creatorHandle": "KillaXBT",
+        "url": "https://x.com/KillaXBT/status/2079586556814164073",
+        "sourceText": "buy BTC below the 50D MA on the monthly",
+        "sourceTextKind": "verbatim_or_search_excerpt",
+        "publishedAt": "REPLACE_WITH_WINDOW_MIDPOINT",
+        "language": "en",
+        "postType": "original",
+        "summary": "BTC 等待月线跌破 50D MA",
+        "symbols": ["BTC"],
+        "direction": "LONG",
+        "entryPrice": "未明确",
+        "entryPriceEvidence": "",
+        "entryTiming": "月线低于 50D MA 时",
+        "entryTimingEvidence": "buy BTC below the 50D MA on the monthly",
+        "invalidation": "未明确",
+        "invalidationEvidence": "",
+        "strategyMatch": "UNKNOWN",
+        "strategyReason": "原文没有完整失效条件"
+      }
+    ],
+    "digestSummary": ["KillaXBT 给出 BTC 条件看多"]
+  },
+  "usage": {
+    "total_cost_usd": 0,
+    "note": "fixture-no-model"
+  },
+  "stderr": "",
+  "exitCode": 0,
+  "raw": {
+    "fixture": true
+  }
+}
