@@ -44,6 +44,14 @@ enum NotificationDeliveryStatus {
   NOT_CONFIGURED
 }
 
+enum GrokRadarRunStatus {
+  RESERVED
+  RUNNING
+  UPLOAD_PENDING
+  SUCCEEDED
+  FAILED
+}
+
 model WorkflowConfig {
   id               String           @id @default(cuid())
   name             String
@@ -326,11 +334,14 @@ model CreatorRawItem {
   readAt          DateTime?      @map("read_at")
   firstSeenAt     DateTime       @default(now()) @map("first_seen_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
+  grokRunId       String?        @map("grok_run_id")
   creator         WatchedCreator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  grokRun         GrokRadarRun?  @relation(fields: [grokRunId], references: [id], onDelete: SetNull)
 
   @@unique([creatorId, externalId])
   @@index([creatorId, publishedAt])
   @@index([readAt, publishedAt])
+  @@index([grokRunId])
   @@map("creator_raw_items")
 }
 
@@ -346,22 +357,51 @@ model TradingStrategy {
 }
 
 model TradingDigest {
-  id              String                 @id @default(cuid())
-  inputKey        String                 @unique @map("input_key")
-  creatorIds      String[]               @map("creator_ids")
-  rawItemIds      String[]               @map("raw_item_ids")
-  summary         Json
-  signals         Json
+  id                String                 @id @default(cuid())
+  inputKey          String                 @unique @map("input_key")
+  creatorIds        String[]               @map("creator_ids")
+  rawItemIds        String[]               @map("raw_item_ids")
+  summary           Json
+  signals           Json
   promptVersion     String                 @map("prompt_version")
   strategyId        String                 @map("strategy_id")
   strategyVersion   Int                    @map("strategy_version")
   strategySnapshot  String                 @map("strategy_snapshot")
+  sourceGrokRunId   String?                @unique @map("source_grok_run_id")
   createdAt         DateTime               @default(now()) @map("created_at")
-  strategy        TradingStrategy        @relation(fields: [strategyId], references: [id], onDelete: Restrict)
-  deliveries      NotificationDelivery[]
+  strategy          TradingStrategy        @relation(fields: [strategyId], references: [id], onDelete: Restrict)
+  sourceGrokRun     GrokRadarRun?          @relation(fields: [sourceGrokRunId], references: [id], onDelete: SetNull)
+  deliveries        NotificationDelivery[]
 
   @@index([createdAt])
   @@map("trading_digests")
+}
+
+model GrokRadarRun {
+  id               String             @id
+  status           GrokRadarRunStatus
+  quotaWindowStart DateTime           @map("quota_window_start")
+  quotaWindowEnd   DateTime           @map("quota_window_end")
+  windowStart      DateTime           @map("window_start")
+  windowEnd        DateTime           @map("window_end")
+  model            String
+  reasoningEffort  String             @map("reasoning_effort")
+  creatorHandles   String[]           @map("creator_handles")
+  keywords         String[]
+  strategyVersion  Int                @map("strategy_version")
+  strategySnapshot String             @map("strategy_snapshot")
+  usage            Json?
+  rawPayload       Json?              @map("raw_payload")
+  ingestionResult  Json?              @map("ingestion_result")
+  error            String?
+  reservedAt       DateTime           @default(now()) @map("reserved_at")
+  completedAt      DateTime?          @map("completed_at")
+  rawItems         CreatorRawItem[]
+  digest           TradingDigest?
+
+  @@index([quotaWindowStart, status])
+  @@index([completedAt])
+  @@map("grok_radar_runs")
 }
 
 model NotificationDelivery {
