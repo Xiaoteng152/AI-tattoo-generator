@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2026-07-16"
 
 [triggers]
-crons = ["*/15 * * * *"]
+crons = []
 
 [observability]
 enabled = true
